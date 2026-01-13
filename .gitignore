@@ -1,0 +1,6 @@
+venv/
+__pycache__/
+checkpoints/
+generated_sketch.png
+.DS_Store
+*.pyc
