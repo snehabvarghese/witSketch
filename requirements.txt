@@ -1,0 +1,11 @@
+diffusers
+transformers
+accelerate
+scipy
+torch
+torchvision
+pillow
+fastapi
+uvicorn
+python-multipart
+facenet-pytorch

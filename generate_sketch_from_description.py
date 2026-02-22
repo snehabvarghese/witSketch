@@ -1,174 +1,221 @@
 import os
 import torch
-from transformers import pipeline
+import json
+import random
 from PIL import Image
-from torchvision import transforms
-from pix2pix_generator import Generator  # your Pix2Pix generator class
+from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
+from llm_text_to_attributes import extract_attributes_llm
 
 # ----------------------------
-# Step 1: LLM Attribute Extraction
+# Configuration
 # ----------------------------
-llm = pipeline(
-    "text2text-generation",
-    model="google/flan-t5-base"
-)
+GLOBAL_DEVICE = "mps" if torch.backends.mps.is_available() else "cpu"
+MODEL_ID = "runwayml/stable-diffusion-v1-5"
 
-def extract_attributes_llm(description):
-    prompt = f"""
-    Extract facial attributes from the description.
-    Attributes:
-    gender, face_shape, hair_length, hair_color, beard, glasses
-
-    Retunern valid JSON only.
-
-    Description:
-    {description}
+# ----------------------------
+# Dataset & Attribute Helpers
+# ----------------------------
+def load_dataset_stats(annotations_path="annotations.jsonl"):
     """
-    output = llm(prompt, max_new_tokens=256)[0]["generated_text"]
-    import json
-    try:
-        return json.loads(output)
-    except:
+    Loads the dataset and computes simple statistics/priors.
+    Returns a dict mapping attribute names to lists of observed values.
+    """
+    stats = {
+        "gender": [], "hair_length": [], "hair_color": [], 
+        "beard": [], "glasses": [], "face_shape": []
+    }
+    
+    if not os.path.exists(annotations_path):
+        print(f"Warning: {annotations_path} not found. Attribute refinement will be skipped.")
         return None
 
+    try:
+        with open(annotations_path, 'r') as f:
+            for line in f:
+                if not line.strip(): continue
+                try:
+                    data = json.loads(line)
+                    for k in stats.keys():
+                        if k in data:
+                            stats[k].append(data[k])
+                except json.JSONDecodeError:
+                    continue
+    except Exception as e:
+        print(f"Error loading stats: {e}")
+        return None
 
-def fallback_extract(description):
-    # simple heuristic extraction for common keywords
-    text = description.lower()
-    attrs = {}
-    attrs['gender'] = 'male' if 'male' in text or 'man' in text else ('female' if 'female' in text or 'woman' in text else 'male')
-    attrs['hair_length'] = 'long' if 'long hair' in text or 'long-haired' in text else 'short'
-    if 'blonde' in text:
-        attrs['hair_color'] = 'blonde'
-    elif 'brown' in text:
-        attrs['hair_color'] = 'brown'
-    else:
-        attrs['hair_color'] = 'black'
-    # handle negations for beard and glasses
-    if 'no beard' in text or 'without beard' in text or 'clean shaven' in text:
-        attrs['beard'] = 'no'
-    elif 'beard' in text or 'mustache' in text:
-        attrs['beard'] = 'yes'
-    else:
-        attrs['beard'] = 'no'
+    return stats
 
-    if 'no glasses' in text or 'without glasses' in text:
-        attrs['glasses'] = 'no'
-    elif 'glasses' in text or 'spectacles' in text:
-        attrs['glasses'] = 'yes'
-    else:
-        attrs['glasses'] = 'no'
-    # face shape default
-    attrs['face_shape'] = 'oval'
-    return attrs
+def refine_attributes(extracted_attrs, dataset_stats):
+    """
+    Refines extracted attributes using dataset statistics.
+    If an attribute is missing or ambiguous, sample from the dataset distribution.
+    """
+    refined = extracted_attrs.copy() if extracted_attrs else {}
+    
+    if not dataset_stats:
+        return refined
+        
+    for k, v in dataset_stats.items():
+        # If attribute missing or None, sample from prior
+        if k not in refined or not refined[k]:
+            if v: # Ensure we have data to sample from
+                refined[k] = random.choice(v)
+            
+    return refined
 
-# ----------------------------
-# Step 2: Convert Attributes → GAN Input
-# ----------------------------
-def attributes_to_tensor(attrs):
-    # Map attributes to a 3-channel image tensor compatible with the Pix2Pix generator
-    gender = 0.0 if attrs.get('gender', 'male') == 'male' else 1.0
-    hair_length = 0.0 if attrs.get('hair_length', 'short') == 'short' else 1.0
-    hair_color = {'black': 0.0, 'brown': 1.0, 'blonde': 2.0}.get(attrs.get('hair_color', 'black'), 0.0)
-
-    # normalize to 0..1 then scale to -1..1 (same as training Normalize)
-    ch0 = gender
-    ch1 = hair_length
-    ch2 = hair_color / 2.0
-
-    vec3 = torch.tensor([ch0, ch1, ch2], dtype=torch.float)
-    vec3 = vec3 * 2.0 - 1.0
-
-    # expand to (C,H,W) = (3,256,256)
-    return vec3.unsqueeze(-1).unsqueeze(-1).repeat(1, 256, 256)
-
-# ----------------------------
-# Step 3: Load GAN Model
-# ----------------------------
-device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
-
-# find a checkpoint to load (prefer explicit final file, else latest epoch ckpt)
-ckpt_dir = "checkpoints"
-ckpt_path = None
-if os.path.exists(os.path.join(ckpt_dir, "pix2pix_final.pth")):
-    ckpt_path = os.path.join(ckpt_dir, "pix2pix_final.pth")
-else:
-    # pick newest .pth file
-    if os.path.isdir(ckpt_dir):
-        pths = [os.path.join(ckpt_dir, f) for f in os.listdir(ckpt_dir) if f.endswith('.pth')]
-        if pths:
-            ckpt_path = sorted(pths, key=os.path.getmtime)[-1]
-
-generator = Generator().to(device)
-if ckpt_path is None:
-    raise FileNotFoundError("No checkpoint found in checkpoints/; run training first or supply a checkpoint named pix2pix_final.pth")
-
-ckpt = torch.load(ckpt_path, map_location=device)
-if isinstance(ckpt, dict) and 'G_state' in ckpt:
-    generator.load_state_dict(ckpt['G_state'])
-elif isinstance(ckpt, dict) and 'G_state_dict' in ckpt:
-    generator.load_state_dict(ckpt['G_state_dict'])
-elif isinstance(ckpt, dict) and any(k.startswith('G') or k.startswith('generator') for k in ckpt.keys()):
-    # attempt to find a nested state dict
-    if 'G_state' in ckpt:
-        generator.load_state_dict(ckpt['G_state'])
-    else:
-        # assume this is a state_dict itself
-        generator.load_state_dict(ckpt)
-else:
-    # assume state_dict
-    generator.load_state_dict(ckpt)
-
-generator.eval()
+def construct_guided_description(attrs):
+    """
+    Constructs a descriptive string from structured attributes.
+    """
+    if not attrs:
+        return ""
+        
+    gender = attrs.get("gender", "person")
+    hair_len = attrs.get("hair_length", "medium")
+    hair_col = attrs.get("hair_color", "")
+    face_shape = attrs.get("face_shape", "")
+    beard = attrs.get("beard", "no")
+    glasses = attrs.get("glasses", "no")
+    
+    parts = [f"a {gender}"]
+    
+    hair_part = f"{hair_len}"
+    if hair_col:
+        hair_part += f" {hair_col}"
+    parts.append(f"with {hair_part} hair")
+    
+    if face_shape:
+        parts.append(f"and {face_shape} face")
+        
+    if beard == "yes":
+        parts.append("wearing a beard")
+    if glasses == "yes":
+        parts.append("wearing glasses")
+        
+    return ", ".join(parts)
 
 # ----------------------------
-# Step 4: Generate Sketch
+# Diffusion Pipeline Class
 # ----------------------------
-def generate_sketch(attrs):
-    attr_tensor = attributes_to_tensor(attrs).unsqueeze(0).to(device)  # batch dim
-    with torch.no_grad():
-        sketch_tensor = generator(attr_tensor)
-    # generator uses Tanh -> outputs in [-1, 1]; convert to [0, 1]
-    sketch_tensor = (sketch_tensor + 1.0) / 2.0
-    sketch_tensor = sketch_tensor.clamp(0.0, 1.0)
-    # Convert to PIL image
-    sketch_img = transforms.ToPILImage()(sketch_tensor.squeeze(0).cpu())
-    return sketch_img
+class TextToSketchPipeline:
+    """
+    Text-conditioned sketch generation using Stable Diffusion.
+    """
+    def __init__(self, model_id=MODEL_ID, device=GLOBAL_DEVICE):
+        self.device = torch.device(device)
+        print(f"Loading diffusion model from {model_id} on {self.device}...")
+        
+        # Load SD pipeline
+        self.pipe = StableDiffusionPipeline.from_pretrained(
+            model_id,
+            torch_dtype=torch.float16 if self.device.type == "cuda" else torch.float32,
+            use_safetensors=True,
+            safety_checker=None,
+            requires_safety_checker=False
+        ).to(self.device)
+        
+        # Enable memory optimizations
+        self.pipe.enable_attention_slicing()
+        
+        # Use DPMSolver for faster inference
+        self.pipe.scheduler = DPMSolverMultistepScheduler.from_config(self.pipe.scheduler.config)
 
-# ----------------------------
-# Step 5: Generate Multiple Sketches (Optional)
-# ----------------------------
-def generate_multiple_sketches(attrs, n=5):
-    sketches = []
-    attr_tensor = attributes_to_tensor(attrs).unsqueeze(0).to(device)
-    for _ in range(n):
-        noise = torch.randn_like(attr_tensor)
+    def generate(self, prompt, attributes=None, num_inference_steps=20, guidance_scale=7.5):
+        """
+        Generate a sketch from the description.
+        Injects 'sketch', 'pencil drawing', etc. into the prompt to force the style.
+        """
+        # Style prompt engineering
+        style_prefix = "professional pencil sketch of "
+        style_suffix = ", detailed charcoal drawing, high contrast, white background, realistic face details, monochrome, rough lines"
+        negative_prompt = "color, photo, photorealistic, 3d render, cartoon, anime, low quality, bad anatomy, deformed"
+
+        # Construct prompt with attribute guidance
+        core_subject = prompt
+        
+        # Ensure attributes is not None for safety
+        if attributes is None:
+            attributes = {}
+            
+        if attributes:
+            guided_desc = construct_guided_description(attributes)
+            if guided_desc:
+                print(f"Guided description from attributes: {guided_desc}")
+                # Combine guided description with original prompt for nuances
+                core_subject = f"{guided_desc}. {prompt}"
+
+        full_prompt = f"{style_prefix}{core_subject}{style_suffix}"
+        
+        print(f"Generating for prompt: {full_prompt}")
+        
         with torch.no_grad():
-            sketch_tensor = generator(attr_tensor + noise)
-        sketch_tensor = (sketch_tensor + 1.0) / 2.0
-        sketch_tensor = sketch_tensor.clamp(0.0, 1.0)
-        sketches.append(transforms.ToPILImage()(sketch_tensor.squeeze(0).cpu()))
-    return sketches
+            image = self.pipe(
+                prompt=full_prompt,
+                negative_prompt=negative_prompt,
+                num_inference_steps=num_inference_steps,
+                guidance_scale=guidance_scale,
+                height=512,
+                width=512
+            ).images[0]
+        
+        # Post-process: Ensure grayscale
+        return image.convert("L")
 
 # ----------------------------
-# Example Usage
+# Helper: Attribute Extraction (Legacy/Stub removed)
+# ----------------------------
+# (extract_attributes_llm is imported now)
+
+# ----------------------------
+# Main Execution
 # ----------------------------
 if __name__ == "__main__":
-    description = input("Enter witness description: ")
-    attrs = extract_attributes_llm(description)
-    if attrs is None:
-        print("LLM failed to extract attributes. Falling back to simple parser.")
-        attrs = fallback_extract(description)
+    print(f"Initializing WitSketch Diffusion Pipeline on {GLOBAL_DEVICE}...")
+    
+    # Load dataset stats
+    print("Loading dataset statistics from annotations.jsonl...")
+    stats = load_dataset_stats("annotations.jsonl")
+    if stats:
+        print(f"Loaded stats for {len(stats)} attributes.")
+    else:
+        print("No stats loaded.")
 
-    print("Extracted attributes:", attrs)
-    sketch = generate_sketch(attrs)
-    # save and show
-    out_path = "generated_sketch.png"
-    sketch.save(out_path)
-    print(f"Saved generated sketch to {out_path}")
-    try:
-        sketch.show()
-    except Exception:
-        pass
-        # Optional: generate multiple sketches
-        # sketches = generate_multiple_sketches(attrs)
+    pipeline = TextToSketchPipeline()
+    
+    while True:
+        try:
+            description = input("\nEnter witness description (or 'q' to quit): ")
+            if description.lower() in ['q', 'quit', 'exit']:
+                break
+            
+            if not description.strip():
+                continue
+                
+            # 1. Extract attributes
+            print("Extracting attributes...")
+            raw_attrs = extract_attributes_llm(description)
+            print(f"Raw extracted: {raw_attrs}")
+            
+            # 2. Refine with dataset stats
+            refined_attrs = refine_attributes(raw_attrs, stats)
+            print(f"Refined attributes: {refined_attrs}")
+            
+            # 3. Generate
+            sketch = pipeline.generate(description, attributes=refined_attrs)
+            
+            # Save output
+            filename = "generated_sketch.png"
+            sketch.save(filename)
+            print(f"Saved sketch to {os.path.abspath(filename)}")
+            
+            # Show image
+            try:
+                sketch.show()
+            except:
+                pass
+                
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            print(f"Error generating sketch: {e}")

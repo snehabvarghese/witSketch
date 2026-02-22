@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WitSketch - Access Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0f172a;
+            /* Fallback specific */
+            height: 100vh;
+        }
+
+        .login-body {
+            background-color: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .login-card {
+            background: rgba(30, 41, 59, 0.8);
+            padding: 3rem;
+            border-radius: 16px;
+            width: 400px;
+            /* Reduced width */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .login-card h2 {
+            margin-bottom: 2rem;
+            color: #f8fafc;
+        }
+
+        .input-group {
+            text-align: left;
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            box-sizing: border-box;
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: white;
+            padding: 0.8rem;
+            border-radius: 8px;
+        }
+
+        .error-msg {
+            color: #ef4444;
+            margin-top: 1rem;
+        }
+
+        .hints {
+            margin-top: 2rem;
+            border-top: 1px solid #334155;
+            padding-top: 1rem;
+            color: #64748b;
+            font-size: 0.8rem;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body class="login-body">
+    <div class="login-card">
+        <div class="logo">
+            <ion-icon name="finger-print-outline"></ion-icon>
+            <span>WitSketch System</span>
+        </div>
+        <h2>Authorized Access Only</h2>
+        <form id="loginForm">
+            <div class="input-group">
+                <label>Username</label>
+                <input type="text" id="username" placeholder="Enter ID" required>
+            </div>
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="Enter Passcode" required>
+            </div>
+            <button type="submit" class="primary-btn">Authenticate</button>
+        </form>
+        <div id="errorMsg" class="error-msg hidden">Access Denied</div>
+
+        <div class="hints">
+            <p><strong>Demo Credentials:</strong></p>
+            <p>Admin: admin / admin123</p>
+            <p>User: user / user123</p>
+        </div>
+    </div>
+
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            const err = document.getElementById('errorMsg');
+
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('role', data.role);
+                    window.location.href = '/static/dashboard.html';
+                } else {
+                    err.classList.remove('hidden');
+                }
+            } catch (ex) {
+                console.error(ex);
+                err.textContent = "Server Error";
+                err.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+
+</html>

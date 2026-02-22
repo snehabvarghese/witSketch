@@ -1,6 +1,23 @@
 venv/
 __pycache__/
-checkpoints/
-generated_sketch.png
-.DS_Store
 *.pyc
+.DS_Store
+
+# Checkpoints and Models
+checkpoints/
+checkpoints_*/
+*.pth
+
+# Datasets and Archives
+dataset/
+archive/
+criminal_records.json
+annotations*.jsonl
+
+# Generated Images and Samples
+generated_*/
+samples_*/
+debug_images/
+mapper_photos/
+*.png
+*.jpg

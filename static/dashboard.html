@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - WitSketch</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+</head>
+
+<body>
+    <div id="nav-placeholder"></div>
+
+    <div class="main-content">
+        <h1>Mission Control</h1>
+        <p class="subtitle">Select a module to begin forensic analysis.</p>
+
+        <div class="card-grid">
+            <a href="/static/generate.html" class="dashboard-card">
+                <ion-icon name="create-outline"></ion-icon>
+                <h3>Generate Sketch</h3>
+                <p>Create visual composites from witness descriptions.</p>
+            </a>
+            <a href="/static/match.html" class="dashboard-card">
+                <ion-icon name="search-outline"></ion-icon>
+                <h3>Criminal Match</h3>
+                <p>Search the criminal database using facial biometrics.</p>
+            </a>
+        </div>
+
+        <div id="adminStats" class="stats-panel hidden">
+            <h2>System Analytics</h2>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <span id="stat-gen">0</span>
+                    <label>Sketches Generated</label>
+                </div>
+                <div class="stat-box">
+                    <span id="stat-match">0</span>
+                    <label>Matches Performed</label>
+                </div>
+                <div class="stat-box">
+                    <span id="stat-total">0</span>
+                    <label>Database Records</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/nav.js"></script>
+    <script>
+        // Load stats if admin
+        if (localStorage.getItem('role') === 'admin') {
+            document.getElementById('adminStats').classList.remove('hidden');
+            fetch('/admin/stats')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('stat-gen').innerText = data.usage.generated_count;
+                    document.getElementById('stat-match').innerText = data.usage.matched_count;
+                    document.getElementById('stat-total').innerText = data.total_records;
+                });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,180 @@
+/* --- Phase 6: Forensic Redesign --- */
+:root {
+    --forensic-blue: #0f1c30;
+    --forensic-panel: #162a47;
+    --accent-blue: #234b7e;
+    --text-white: #ffffff;
+}
+
+/* Override Body for Builder */
+body {
+    overflow: hidden;
+    /* App like feel */
+    background: white;
+    /* Reference has white background behind canvas */
+}
+
+/* Nav Handling */
+#nav-placeholder {
+    display: none;
+}
+
+/* Hide default top nav for this specific page if we want full screen, or we can keep it. Reference doesn't show it. Let's hide it for immersion. */
+
+.builder-layout {
+    display: grid;
+    grid-template-columns: 80px 1fr 350px;
+    height: 100vh;
+    width: 100vw;
+    background: #f0f0f0;
+}
+
+/* Left Sidebar - Categories */
+.category-sidebar {
+    background: var(--forensic-blue);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 2rem;
+    gap: 1.5rem;
+    z-index: 10;
+}
+
+.cat-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cat-icon ion-icon {
+    font-size: 1.8rem;
+}
+
+.cat-icon span {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.cat-icon:hover,
+.cat-icon.active {
+    color: white;
+}
+
+.cat-icon.active ion-icon {
+    color: #3b82f6;
+}
+
+
+/* Center - Canvas */
+.canvas-area {
+    background: #f3f4f6;
+    /* White-ish */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.paper-canvas {
+    width: 600px;
+    height: 700px;
+    background: white;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.1);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Right - Options */
+.options-sidebar {
+    background: var(--forensic-panel);
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    color: white;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.top-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+}
+
+.action-btn-flat {
+    background: transparent;
+    border: 1px solid white;
+    color: white;
+    padding: 0.5rem;
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+.action-btn-flat:hover {
+    background: white;
+    color: var(--forensic-blue);
+}
+
+.options-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 0.5rem;
+}
+
+.options-header h3 {
+    font-size: 0.9rem;
+    font-weight: 400;
+    letter-spacing: 1px;
+    margin: 0;
+}
+
+.shape-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    overflow-y: auto;
+}
+
+.shape-item {
+    background: white;
+    border-radius: 4px;
+    /* Square-ish like ref */
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    transition: transform 0.2s;
+}
+
+.shape-item:hover {
+    transform: scale(1.05);
+}
+
+/* Invert icons to look like pencil sketch (black on white) */
+.shape-item ion-icon {
+    font-size: 3rem;
+    color: #333;
+    filter: blur(0.5px);
+    /* Soft sketch look */
+}
+
+/* Overwrite placed items styles for white canvas */
+.placed-feature ion-icon {
+    color: #222;
+    /* Dark pencil lead color */
+    filter: blur(0.5px);
+}

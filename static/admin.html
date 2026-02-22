@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel - WitSketch</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+</head>
+
+<body>
+    <div id="nav-placeholder"></div>
+
+    <div class="main-content">
+        <h1>Admin Operations</h1>
+        <p class="subtitle">Database management and record entry.</p>
+
+        <div class="panel form-panel">
+            <h2>Add New Record</h2>
+            <form id="addRecordForm">
+                <div class="form-row">
+                    <div class="input-group">
+                        <label>Full Name</label>
+                        <input type="text" name="name" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Age</label>
+                        <input type="number" name="age" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="input-group">
+                        <label>Crime Type</label>
+                        <select name="crime">
+                            <option>Theft</option>
+                            <option>Assault</option>
+                            <option>Fraud</option>
+                            <option>Cybercrime</option>
+                            <option>Arson</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Risk Level</label>
+                        <select name="risk_level">
+                            <option>Low</option>
+                            <option>Medium</option>
+                            <option>High</option>
+                            <option>Critical</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Sentence</label>
+                    <input type="text" name="sentence" placeholder="e.g. 5 Years" required>
+                </div>
+
+                <div class="input-group">
+                    <label>Mugshot (Photo)</label>
+                    <input type="file" name="file" accept="image/*" required>
+                </div>
+
+                <button type="submit" class="primary-btn">Add to Database</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/nav.js"></script>
+    <script>
+        if (localStorage.getItem('role') !== 'admin') {
+            window.location.href = '/static/dashboard.html';
+        }
+
+        document.getElementById('addRecordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+
+            try {
+                const res = await fetch('/admin/add_record', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert('Record Added Successfully! ID: ' + data.id);
+                    e.target.reset();
+                } else {
+                    alert('Error: ' + JSON.stringify(data));
+                }
+            } catch (err) {
+                alert('Upload Failed');
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Generate - WitSketch</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <style>
+        .page-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        .controls-card {
+            background: var(--card-bg, #1e1e2e);
+            border-radius: 16px;
+            padding: 1.5rem;
+            position: sticky;
+            top: 1rem;
+        }
+
+        .results-area {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .composite-panel,
+        .match-panel {
+            background: var(--card-bg, #1e1e2e);
+            border-radius: 16px;
+            padding: 1.5rem;
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 0.2rem;
+        }
+
+        .panel-sub {
+            font-size: 0.78rem;
+            color: #888;
+            margin-bottom: 1rem;
+        }
+
+        .sketch-box {
+            background: #111;
+            border-radius: 12px;
+            min-height: 260px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .sketch-box img {
+            width: 100%;
+            border-radius: 12px;
+            display: block;
+        }
+
+        .placeholder-text {
+            color: #555;
+            font-size: 0.9rem;
+        }
+
+        .match-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .match-card {
+            background: #111;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #2a2a3a;
+            transition: transform 0.2s, border-color 0.2s;
+            cursor: pointer;
+        }
+
+        .match-card:hover {
+            transform: translateY(-3px);
+            border-color: #6c63ff;
+        }
+
+        .match-card .card-img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            display: block;
+        }
+
+        .match-card .no-img {
+            width: 100%;
+            aspect-ratio: 1;
+            background: #1a1a2a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #444;
+            font-size: 0.75rem;
+        }
+
+        .match-info {
+            padding: 0.75rem;
+        }
+
+        .match-info .name {
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-bottom: 2px;
+        }
+
+        .match-info .crime {
+            font-size: 0.75rem;
+            color: #fa8072;
+            margin: 3px 0;
+        }
+
+        .match-info .details {
+            font-size: 0.72rem;
+            color: #888;
+        }
+
+        .score-bar {
+            height: 4px;
+            background: #2a2a3a;
+            border-radius: 2px;
+            margin-top: 0.5rem;
+        }
+
+        .score-fill {
+            height: 4px;
+            background: linear-gradient(90deg, #6c63ff, #a78bfa);
+            border-radius: 2px;
+        }
+
+        .score-label {
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .risk-badge {
+            display: inline-block;
+            padding: 1px 7px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        .risk-High,
+        .risk-Critical {
+            background: #4a1010;
+            color: #fa8072;
+        }
+
+        .risk-Medium {
+            background: #4a3010;
+            color: #fbbf24;
+        }
+
+        .risk-Low {
+            background: #103a10;
+            color: #86efac;
+        }
+
+        /* View Details Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal {
+            background: #1e1e2e;
+            border-radius: 20px;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 1.5rem;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal img {
+            width: 200px;
+            border-radius: 12px;
+            object-fit: cover;
+        }
+
+        .modal .no-img-lg {
+            width: 200px;
+            height: 200px;
+            background: #111;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #444;
+        }
+
+        .modal-body h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .modal-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .modal-label {
+            font-size: 0.75rem;
+            color: #888;
+            min-width: 80px;
+        }
+
+        .modal-value {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 1.5rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: #fff;
+        }
+
+        .attr-tag {
+            display: inline-block;
+            background: #2a2a3a;
+            border-radius: 4px;
+            padding: 2px 7px;
+            font-size: 0.7rem;
+            margin: 2px;
+            color: #c4b5fd;
+        }
+
+        /* Status / loader */
+        .loader-ring {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #555;
+            border-top-color: #a78bfa;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .status-bar {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 0.75rem;
+            min-height: 1.2em;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="nav-placeholder"></div>
+
+    <div class="main-content">
+        <h1 style="margin-bottom:0.4rem">Generate &amp; Match</h1>
+        <p class="subtitle" style="margin-bottom:1.5rem">
+            Describe the suspect — we generate a composite sketch and find the closest criminal records.
+        </p>
+
+        <div class="page-grid">
+            <!-- Controls -->
+            <div class="controls-card">
+                <div class="input-group" style="margin-bottom:1rem">
+                    <label>Suspect Description</label>
+                    <div class="search-box">
+                        <input type="text" id="descInput" placeholder="e.g. 'old man with beard and glasses'">
+                        <button id="micBtn" class="icon-btn" title="Voice Input">
+                            <ion-icon name="mic-outline"></ion-icon>
+                        </button>
+                    </div>
+                    <div id="listeningIndicator" class="hidden"
+                        style="font-size:0.8rem;color:#a78bfa;margin-top:0.3rem">🎙 Listening…</div>
+                </div>
+
+                <div style="cursor:pointer;font-size:0.85rem;color:#888;margin-bottom:0.75rem"
+                    onclick="document.getElementById('advancedOptions').classList.toggle('hidden')">
+                    ⚙ Advanced Options
+                </div>
+                <div class="hidden" id="advancedOptions" style="margin-bottom:1rem">
+                    <label style="font-size:0.8rem">Noise Scale (sketch diversity)</label>
+                    <input type="range" id="noiseScale" min="0.5" max="5.0" step="0.5" value="1.0"
+                        oninput="document.getElementById('noiseValue').textContent=this.value">
+                    <span id="noiseValue">1.0</span>
+                </div>
+
+                <button id="generateBtn" class="primary-btn" style="width:100%">
+                    <ion-icon name="create-outline"></ion-icon> Generate &amp; Find Matches
+                </button>
+                <div class="status-bar" id="statusBar"></div>
+            </div>
+
+            <!-- Results -->
+            <div class="results-area">
+
+                <!-- Composite sketch panel -->
+                <div class="composite-panel">
+                    <div class="panel-title">🎨 Composite Illustration</div>
+                    <div class="panel-sub">AI-generated from your description. This is a composite — not a real person.
+                    </div>
+                    <div class="sketch-box" id="sketchBox">
+                        <span class="placeholder-text">Sketch will appear here</span>
+                    </div>
+                    <div id="detectedAttrs" style="margin-top:0.75rem"></div>
+                </div>
+
+                <!-- DB match panel -->
+                <div class="match-panel">
+                    <div class="panel-title">🔍 Criminal Record Matches</div>
+                    <div class="panel-sub">Top 3 records whose attributes best match your description.</div>
+                    <div class="match-grid" id="matchGrid">
+                        <div style="color:#555;font-size:0.85rem;grid-column:1/-1">
+                            Matches will appear after you generate.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal">
+            <button class="modal-close" onclick="closeModal()">✕</button>
+            <div id="modalImg">
+                <div class="no-img-lg">No sketch</div>
+            </div>
+            <div class="modal-body">
+                <h2 id="mName">—</h2>
+                <div class="modal-row">
+                    <span class="modal-label">ID</span>
+                    <span class="modal-value" id="mId">—</span>
+                </div>
+                <div class="modal-row">
+                    <span class="modal-label">Age</span>
+                    <span class="modal-value" id="mAge">—</span>
+                </div>
+                <div class="modal-row">
+                    <span class="modal-label">Crime</span>
+                    <span class="modal-value" id="mCrime" style="color:#fa8072">—</span>
+                </div>
+                <div class="modal-row">
+                    <span class="modal-label">Sentence</span>
+                    <span class="modal-value" id="mSentence">—</span>
+                </div>
+                <div class="modal-row">
+                    <span class="modal-label">Risk</span>
+                    <span class="modal-value"><span class="risk-badge" id="mRisk">—</span></span>
+                </div>
+                <div class="modal-row">
+                    <span class="modal-label">Attr. Match</span>
+                    <span class="modal-value" id="mScore" style="color:#a78bfa">—</span>
+                </div>
+                <div style="margin-top:0.75rem">
+                    <div style="font-size:0.75rem;color:#888;margin-bottom:0.3rem">Attributes on file:</div>
+                    <div id="mAttrs"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/nav.js"></script>
+    <script>
+        // ─── DOM refs ────────────────────────────────────────────────────────────
+        const generateBtn = document.getElementById('generateBtn');
+        const descInput = document.getElementById('descInput');
+        const sketchBox = document.getElementById('sketchBox');
+        const matchGrid = document.getElementById('matchGrid');
+        const statusBar = document.getElementById('statusBar');
+        const detectedAttrs = document.getElementById('detectedAttrs');
+
+        function setStatus(html) { statusBar.innerHTML = html; }
+        function loader() { return '<span class="loader-ring"></span>'; }
+
+        // ─── Generate + Match flow ───────────────────────────────────────────────
+        generateBtn.addEventListener('click', async () => {
+            const desc = descInput.value.trim();
+            if (!desc) { alert('Please enter a description.'); return; }
+
+            generateBtn.disabled = true;
+            sketchBox.innerHTML = `<div style="text-align:center;padding:2rem">${loader()} Generating composite…<br><small style="color:#666">Takes ~30 seconds</small></div>`;
+            matchGrid.innerHTML = `<div style="grid-column:1/-1;color:#555;font-size:0.85rem">${loader()} Searching records…</div>`;
+            detectedAttrs.innerHTML = '';
+            setStatus(`${loader()} Generating composite illustration…`);
+
+            // Run both in parallel
+            const [genResult, matchResult] = await Promise.allSettled([
+                fetch('/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        description: desc, mode: 'diffusion',
+                        noise_scale: parseFloat(document.getElementById('noiseScale').value)
+                    })
+                }).then(r => r.json()),
+
+                fetch('/attribute_match', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description: desc })
+                }).then(r => r.json())
+            ]);
+
+            // Render composite sketch
+            if (genResult.status === 'fulfilled') {
+                const d = genResult.value;
+                sketchBox.innerHTML = `<img src="${d.image}" alt="Generated composite">`;
+                const attrs = d.attributes || {};
+                if (attrs.gender) {
+                    detectedAttrs.innerHTML = '<div style="font-size:0.72rem;color:#888;margin-bottom:4px">Detected:</div>' +
+                        Object.entries(attrs).map(([k, v]) =>
+                            `<span class="attr-tag">${k.replace('_', ' ')}: <b>${v}</b></span>`
+                        ).join('');
+                }
+            } else {
+                sketchBox.innerHTML = '<span class="placeholder-text" style="color:#fa8072">Generation failed</span>';
+            }
+
+            // Render DB matches
+            if (matchResult.status === 'fulfilled') {
+                renderMatches(matchResult.value);
+            } else {
+                matchGrid.innerHTML = '<div style="color:#fa8072;grid-column:1/-1">Match search failed.</div>';
+            }
+
+            generateBtn.disabled = false;
+            setStatus('✓ Done.');
+        });
+
+        // ─── Render match cards ──────────────────────────────────────────────────
+        let matchData = [];
+
+        function renderMatches(data) {
+            matchData = data.results || [];
+            if (!matchData.length) {
+                matchGrid.innerHTML = '<div style="color:#555;grid-column:1/-1">No matches found.</div>';
+                return;
+            }
+
+            matchGrid.innerHTML = matchData.map((r, i) => {
+                const m = r.match;
+                const pct = r.attribute_similarity_pct || 0;
+                const imgHtml = r.sketch_image
+                    ? `<img class="card-img" src="${r.sketch_image}" alt="${m.name}">`
+                    : `<div class="no-img">No sketch</div>`;
+                return `
+            <div class="match-card" onclick="openModal(${i})">
+                ${imgHtml}
+                <div class="match-info">
+                    <div class="name">${m.name}</div>
+                    <div class="crime">⚖️ ${m.crime}</div>
+                    <div class="details">Age ${m.age} · ${m.sentence}</div>
+                    <span class="risk-badge risk-${m.risk_level}">${m.risk_level} Risk</span>
+                    <div class="score-bar">
+                        <div class="score-fill" style="width:${Math.min(pct, 100)}%"></div>
+                    </div>
+                    <div class="score-label">${pct}% attribute match</div>
+                    <div style="margin-top:6px;font-size:0.72rem;color:#6c63ff;cursor:pointer">
+                        View Details →
+                    </div>
+                </div>
+            </div>`;
+            }).join('');
+        }
+
+        // ─── Modal ──────────────────────────────────────────────────────────────
+        function openModal(idx) {
+            const r = matchData[idx];
+            if (!r) return;
+            const m = r.match;
+
+            document.getElementById('modalImg').innerHTML = r.sketch_image
+                ? `<img src="${r.sketch_image}" alt="${m.name}" style="width:200px;border-radius:12px">`
+                : `<div class="no-img-lg">No sketch</div>`;
+
+            document.getElementById('mName').textContent = m.name;
+            document.getElementById('mId').textContent = m.id || '—';
+            document.getElementById('mAge').textContent = m.age;
+            document.getElementById('mCrime').textContent = m.crime;
+            document.getElementById('mSentence').textContent = m.sentence;
+
+            const riskEl = document.getElementById('mRisk');
+            riskEl.textContent = m.risk_level + ' Risk';
+            riskEl.className = `risk-badge risk-${m.risk_level}`;
+
+            document.getElementById('mScore').textContent = r.attribute_similarity_pct + '% attribute match';
+
+            const attrs = m.attributes || {};
+            document.getElementById('mAttrs').innerHTML = Object.entries(attrs).map(([k, v]) =>
+                `<span class="attr-tag">${k.replace('_', ' ')}: <b>${v}</b></span>`
+            ).join('');
+
+            document.getElementById('detailModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.remove('active');
+        }
+
+        // Close modal on backdrop click
+        document.getElementById('detailModal').addEventListener('click', function (e) {
+            if (e.target === this) closeModal();
+        });
+
+        // ─── Voice input ─────────────────────────────────────────────────────────
+        const micBtn = document.getElementById('micBtn');
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const rec = new SR();
+            rec.lang = 'en-US';
+            rec.onresult = e => { descInput.value = e.results[0][0].transcript; };
+            rec.onstart = () => document.getElementById('listeningIndicator').classList.remove('hidden');
+            rec.onend = () => document.getElementById('listeningIndicator').classList.add('hidden');
+            micBtn.addEventListener('click', () => rec.start());
+        } else {
+            micBtn.style.display = 'none';
+        }
+
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+    </script>
+</body>
+
+</html>

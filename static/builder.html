@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Visual Composer - WitSketch</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+</head>
+
+<body>
+    <div id="nav-placeholder"></div>
+
+    <div class="main-content">
+        <h1>Face Composer</h1>
+        <p class="subtitle">Drag features onto the canvas to build a face.</p>
+
+        <div class="builder-container">
+            <!-- Left: Palette -->
+            <div class="palette-panel">
+                <div class="palette-tabs">
+                    <button class="tab-btn active" data-tab="face">Face Shape</button>
+                    <button class="tab-btn" data-tab="hair">Hair</button>
+                    <button class="tab-btn" data-tab="eyes">Eyes</button>
+                    <button class="tab-btn" data-tab="brows">Brows</button>
+                    <button class="tab-btn" data-tab="nose">Nose</button>
+                    <button class="tab-btn" data-tab="mouth">Mouth</button>
+                </div>
+
+                <div class="palette-grid" id="paletteGrid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Right: Canvas -->
+            <div class="canvas-panel">
+                <div class="face-canvas" id="faceCanvas">
+                    <!-- Dropped items appear here -->
+                    <div class="placed-feature placed-eyes hidden" id="item-eyes">
+                        <ion-icon name="eye-outline"></ion-icon><ion-icon name="eye-outline"></ion-icon>
+                    </div>
+                    <div class="placed-feature placed-brows hidden" id="item-brows">
+                        <ion-icon name="remove-outline"></ion-icon><ion-icon name="remove-outline"></ion-icon>
+                    </div>
+                    <div class="placed-feature placed-nose hidden" id="item-nose">
+                        <ion-icon name="triangle-outline"></ion-icon>
+                    </div>
+                    <div class="placed-feature placed-mouth hidden" id="item-mouth">
+                        <ion-icon name="remove-outline"></ion-icon>
+                    </div>
+                    <div class="placed-feature placed-hair hidden" id="item-hair">
+                        <ion-icon name="cut-outline"></ion-icon>
+                    </div>
+                </div>
+
+                <div class="generated-overlay hidden" id="resultOverlay">
+                    <img id="resultImage" src="">
+                    <button class="small-btn" onclick="document.getElementById('resultOverlay').classList.add('hidden')"
+                        style="margin-top: 1rem">Close</button>
+                    <button class="small-btn" id="downloadBtn" style="margin-top: 1rem">Download</button>
+                </div>
+
+                <div style="margin-top: 2rem; display: flex; gap: 1rem; z-index: 10;">
+                    <button id="generateBtn" class="primary-btn">
+                        <ion-icon name="aperture-outline"></ion-icon> Generate Composite
+                    </button>
+                    <button id="resetBtn" class="icon-btn" style="width: auto; padding: 0 1rem;">
+                        Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/nav.js"></script>
+    <script>
+        // --- Data ---
+        const assets = {
+            face: [
+                { id: 'oval', label: 'Oval', icon: 'ellipse-outline', val: 'oval' },
+                { id: 'round', label: 'Round', icon: 'radio-button-off-outline', val: 'round' },
+                { id: 'square', label: 'Square', icon: 'square-outline', val: 'square' },
+            ],
+            hair: [
+                { id: 'short', label: 'Short', icon: 'cut-outline', val: 'short' },
+                { id: 'medium', label: 'Medium', icon: 'person-outline', val: 'medium' },
+                { id: 'long', label: 'Long', icon: 'sparkles-outline', val: 'long' },
+                { id: 'bald', label: 'Bald', icon: 'remove-circle-outline', val: 'bald' },
+            ],
+            eyes: [
+                { id: 'normal', label: 'Normal', icon: 'eye-outline', val: 'normal' },
+                { id: 'narrow', label: 'Narrow', icon: 'eye-off-outline', val: 'narrow' },
+                { id: 'wide', label: 'Wide', icon: 'alert-circle-outline', val: 'wide' },
+            ],
+            brows: [
+                { id: 'thin', label: 'Thin', icon: 'remove-outline', val: 'thin' },
+                { id: 'thick', label: 'Thick', icon: 'menu-outline', val: 'thick' },
+            ],
+            nose: [
+                { id: 'small', label: 'Small', icon: 'triangle-outline', val: 'small' },
+                { id: 'wide', label: 'Wide', icon: 'caret-up-outline', val: 'wide' },
+            ],
+            mouth: [
+                { id: 'smile', label: 'Smile', icon: 'happy-outline', val: 'smile' },
+                { id: 'neutral', label: 'Neutral', icon: 'remove-outline', val: 'neutral' },
+            ]
+        };
+
+        const state = {
+            face_shape: 'oval',
+            hair_length: 'short', // default
+            eyes: 'normal',
+            brows: 'normal',
+            nose: 'normal',
+            mouth: 'normal',
+            gender: 'male' // default
+        };
+
+        // --- UI Logic ---
+        const paletteGrid = document.getElementById('paletteGrid');
+        const faceCanvas = document.getElementById('faceCanvas');
+        const tabs = document.querySelectorAll('.tab-btn');
+
+        // Render Palette
+        function renderPalette(category) {
+            paletteGrid.innerHTML = '';
+            const items = assets[category];
+            items.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'draggable-item';
+                el.draggable = true;
+                el.innerHTML = `<ion-icon name="${item.icon}"></ion-icon><span>${item.label}</span>`;
+
+                // Drag Events
+                el.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('type/category', category);
+                    e.dataTransfer.setData('type/val', item.val);
+                    e.dataTransfer.setData('type/icon', item.icon);
+                });
+
+                paletteGrid.appendChild(el);
+            });
+        }
+
+        // Tabs
+        tabs.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tabs.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderPalette(btn.dataset.tab);
+            });
+        });
+
+        // Initialize
+        renderPalette('face');
+
+        // Drop Zone
+        faceCanvas.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            faceCanvas.classList.add('drag-over');
+        });
+
+        faceCanvas.addEventListener('dragleave', () => {
+            faceCanvas.classList.remove('drag-over');
+        });
+
+        faceCanvas.addEventListener('drop', (e) => {
+            e.preventDefault();
+            faceCanvas.classList.remove('drag-over');
+
+            const category = e.dataTransfer.getData('type/category');
+            const val = e.dataTransfer.getData('type/val');
+            const icon = e.dataTransfer.getData('type/icon');
+
+            if (category && val) {
+                updateState(category, val, icon);
+            }
+        });
+
+        function updateState(cat, val, iconName) {
+            // Update Data
+            if (cat === 'face') state.face_shape = val;
+            if (cat === 'hair') state.hair_length = val;
+            // Others are metadata for now
+            state[cat] = val;
+
+            // Visual Update
+            if (cat === 'face') {
+                // Change canvas shape
+                if (val === 'square') faceCanvas.style.borderRadius = '20px 20px 60px 60px';
+                if (val === 'round') faceCanvas.style.borderRadius = '50%';
+                if (val === 'oval') faceCanvas.style.borderRadius = '200px 200px 150px 150px';
+            } else {
+                // Show icon on face
+                const placeholder = document.getElementById(`item-${cat}`);
+                if (placeholder) {
+                    placeholder.classList.remove('hidden');
+                    // Update icon if needed, though we use generic ones for positioning
+                    // For hair, we might want to change opacity or something
+                    console.log(`Placed ${val} on ${cat}`);
+
+                    // Simple anim
+                    placeholder.style.transform = 'scale(1.2) translateX(-45%)'; // Center shift
+                    setTimeout(() => placeholder.style.transform = 'scale(1) translateX(-50%)', 200);
+                }
+            }
+        }
+
+        // Generate
+        document.getElementById('generateBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('generateBtn');
+            btn.innerHTML = '<div class="loader" style="width:20px;height:20px;border-width:2px"></div> Generating...';
+
+            try {
+                // Map state to backend
+                // Some are direct, some are ignored but sent
+                const payload = {
+                    description: "composite sketch",
+                    noise_scale: 1.0,
+                    manual_attributes: {
+                        ...state,
+                        // Fix for Hair: 'bald' -> short hair mapping if needed, or just let backend handle 'short' default
+                    }
+                };
+
+                const res = await fetch('/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                document.getElementById('resultImage').src = data.image;
+                document.getElementById('resultOverlay').classList.remove('hidden');
+
+            } catch (e) {
+                alert('Generation failed');
+                console.error(e);
+            } finally {
+                btn.innerHTML = '<ion-icon name="aperture-outline"></ion-icon> Generate Composite';
+            }
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            Object.assign(state, {
+                face_shape: 'oval',
+                hair_length: 'short',
+                eyes: 'normal',
+                brows: 'normal',
+                nose: 'normal',
+                mouth: 'normal'
+            });
+            faceCanvas.style.borderRadius = '200px 200px 150px 150px';
+            document.querySelectorAll('.placed-feature').forEach(el => el.classList.add('hidden'));
+        });
+
+        // Download
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            const a = document.createElement('a');
+            a.href = document.getElementById('resultImage').src;
+            a.download = 'sketch_composite.png';
+            a.click();
+        });
+
+    </script>
+</body>
+
+</html>

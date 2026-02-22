@@ -3,17 +3,24 @@ import json
 import re
 
 # -----------------------------
-# Initialize LLM
+# Global Lazy Loader
 # -----------------------------
-llm = pipeline(
-    "text2text-generation",
-    model="google/flan-t5-base",  # can use flan-t5-large if enough GPU
-    device_map="auto",
-    do_sample=False               # deterministic output
-)
+_LLM_PIPELINE = None
+
+def get_llm():
+    global _LLM_PIPELINE
+    if _LLM_PIPELINE is None:
+        print("Loading FLAN-T5 model...")
+        _LLM_PIPELINE = pipeline(
+            "text2text-generation",
+            model="google/flan-t5-base",
+            device_map="auto",
+            do_sample=False
+        )
+    return _LLM_PIPELINE
 
 # -----------------------------
-# Default attribute values
+# Default attribute values (Reference only)
 # -----------------------------
 DEFAULT_ATTRS = {
     "gender": "male",
@@ -52,11 +59,10 @@ def normalize(attrs):
 # Keyword fallback for safety
 # -----------------------------
 def keyword_fallback(description):
-    attrs = DEFAULT_ATTRS.copy()
+    attrs = {}
     desc = description.lower()
 
     # Gender
-    # Gender (use word boundaries to avoid matching "man" inside "woman")
     if re.search(r"\b(?:woman|female)\b", desc):
         attrs["gender"] = "female"
     elif re.search(r"\b(?:man|male)\b", desc):
@@ -69,7 +75,6 @@ def keyword_fallback(description):
         attrs["face_shape"] = "square"
 
     # Hair length
-    # Hair length (allow adjectives between the length word and 'hair', e.g. 'long brown hair')
     if re.search(r"\bshort\b.*\bhair\b", desc):
         attrs["hair_length"] = "short"
     if re.search(r"\bmedium\b.*\bhair\b", desc):
@@ -118,30 +123,32 @@ Description:
 """
 
     # Step 1: LLM attempt
+    llm = get_llm()
     output = llm(prompt, max_new_tokens=200)[0]["generated_text"]
     json_text = clean_json(output)
 
-    attrs = None
+    attrs = {}
     if json_text:
         try:
-            attrs = json.loads(json_text)
-            attrs = normalize(attrs)
+            parsed = json.loads(json_text)
+            attrs = normalize(parsed)
         except:
-            attrs = None
+            pass
 
     # Step 2: Always run keyword fallback
     attrs_fallback = keyword_fallback(description)
 
-    # Step 3: Merge LLM + fallback
-    if attrs:
-        for key in DEFAULT_ATTRS:
-            # Replace default or missing values with keyword fallback
-            if key not in attrs or attrs[key] == DEFAULT_ATTRS[key]:
-                attrs[key] = attrs_fallback[key]
-    else:
-        attrs = attrs_fallback
+    # Step 3: Merge LLM + fallback (Fallback overrides LLM if present, or fill missing)
+    # Actually, let's trust fallback for explicitly detected keywords, but keep LLM for others.
+    # Logic: Start with LLM findings, update with Keyword findings.
+    
+    final_attrs = attrs.copy()
+    final_attrs.update(attrs_fallback)
+    
+    # We DO NOT fill in defaults here anymore.
+    # Missing keys will be None or absent.
 
-    return attrs
+    return final_attrs
 
 # -----------------------------
 # Optional test block

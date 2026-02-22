@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WitSketch - Forensic Artist AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- Ionicons for icons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <ion-icon name="finger-print-outline"></ion-icon>
+                <span>WitSketch</span>
+            </div>
+            <div class="status-badge">AI Forensic System Online</div>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+            <!-- Left Panel: Controls -->
+            <div class="panel controls-panel">
+                <h1>Generate Sketch</h1>
+                <p class="subtitle">Describe the suspect to generate a forensic sketch.</p>
+                
+                <div class="input-group">
+                    <label>Description</label>
+                    <div class="search-box">
+                        <input type="text" id="descInput" placeholder="e.g. 'Male with short brown hair'">
+                        <button id="micBtn" class="icon-btn" title="Voice Input">
+                            <ion-icon name="mic-outline"></ion-icon>
+                        </button>
+                    </div>
+                    <div id="listeningIndicator" class="hidden">Listening...</div>
+                </div>
+
+                <div class="options-toggle" onclick="toggleOptions()">
+                    <span>Advanced Attributes</span>
+                    <ion-icon name="chevron-down-outline"></ion-icon>
+                </div>
+
+                <div class="advanced-options hidden" id="advancedOptions">
+                    <div class="option-row">
+                        <label>Noise Scale (Diversity)</label>
+                        <input type="range" id="noiseScale" min="0.5" max="5.0" step="0.5" value="1.0">
+                        <span id="noiseValue">1.0</span>
+                    </div>
+                </div>
+
+                <button id="generateBtn" class="primary-btn">
+                    <ion-icon name="create-outline"></ion-icon> Generate Sketch
+                </button>
+            </div>
+
+            <!-- Right Panel: Result -->
+            <div class="panel result-panel">
+                <div class="sketch-container">
+                    <div class="placeholder-text" id="placeholder"> Sketch will appear here </div>
+                    <img id="resultImage" class="hidden" src="" alt="Generated Sketch">
+                    <div class="loader hidden" id="loader"></div>
+                </div>
+                
+                <div class="actions hidden" id="actions">
+                    <button class="action-btn" id="downloadBtn">
+                        <ion-icon name="download-outline"></ion-icon> Download
+                    </button>
+                    <button class="action-btn" id="matchBtn">
+                        <ion-icon name="search-outline"></ion-icon> Find Criminal Match
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Match Overlay -->
+        <div class="overlay hidden" id="matchOverlay">
+            <div class="match-card">
+                <button class="close-btn" onclick="closeMatch()"><ion-icon name="close-outline"></ion-icon></button>
+                <h2>Criminal Record Found</h2>
+                
+                <div class="match-content">
+                    <div class="match-photo">
+                        <!-- Use placeholder initially -->
+                        <img id="dbPhoto" src="" alt="Suspect Photo"> 
+                        <div class="similarity-badge" id="matchScore">98% Match</div>
+                    </div>
+                    <div class="match-details">
+                        <h3 id="criminalName">John Doe</h3>
+                        <p class="detail-row"><span>ID:</span> <span id="criminalID">12345</span></p>
+                        <p class="detail-row"><span>Age:</span> <span id="criminalAge">34</span></p>
+                        <p class="detail-row"><span>Crime:</span> <span id="criminalCrime">Grand Theft</span></p>
+                        <p class="detail-row"><span>Sentence:</span> <span id="criminalSentence">5 years</span></p>
+                        <div class="risk-level" id="criminalRisk">High Risk</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
