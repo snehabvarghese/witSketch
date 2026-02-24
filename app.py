@@ -40,6 +40,34 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 if os.path.exists("dataset"):
     app.mount("/dataset", StaticFiles(directory="dataset"), name="dataset")
 
+# Mount Face Sketch Elements
+if os.path.exists("Face Sketch Elements"):
+    app.mount("/elements", StaticFiles(directory="Face Sketch Elements"), name="elements")
+
+@app.get("/api/elements")
+async def get_face_elements():
+    """Returns a list of all available face sketch elements categorized."""
+    base_dir = "Face Sketch Elements"
+    if not os.path.exists(base_dir):
+        return {"error": "Elements directory not found."}
+        
+    elements = {}
+    
+    # Valid categories we expect to find in the folder
+    categories = ["head", "hair", "eyes", "eyebrows", "nose", "lips", "mustach", "more"]
+    
+    for category in categories:
+        cat_dir = os.path.join(base_dir, category)
+        if os.path.exists(cat_dir):
+            files = []
+            for f in sorted(os.listdir(cat_dir)):
+                if f.lower().endswith('.png'):
+                    # Provide the URL path that the frontend will use to load the image
+                    files.append(f"/elements/{category}/{f}")
+            elements[category] = files
+            
+    return elements
+
 
 # --- Global State ---
 model_state = {
@@ -305,7 +333,25 @@ async def match_criminal(file: UploadFile = File(...)):
         record = db[idx].copy()
         record.pop('embedding', None)
         record.pop('attr_vector', None)
-        results.append({"match": record, "score": float(score)})
+        
+        # Convert sketch or photo image to base64 for reliable frontend display
+        sketch_b64 = None
+        target_path = record.get("sketch_path", "")
+        if not target_path or not os.path.exists(target_path):
+            target_path = record.get("photo_path", "")
+            
+        if target_path and os.path.exists(target_path):
+            try:
+                with Image.open(target_path).convert("RGB") as sk_img:
+                    sketch_b64 = "data:image/png;base64," + pil_to_base64(sk_img)
+            except Exception:
+                pass
+                
+        results.append({
+            "match": record, 
+            "score": float(score),
+            "sketch_image": sketch_b64
+        })
     
     return {"results": results}
 

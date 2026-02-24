@@ -19,7 +19,7 @@ const navHTML = `
         <a href="/static/generate.html" class="nav-item" id="nav-gen">
             <ion-icon name="create-outline"></ion-icon> Text Generator
         </a>
-        <a href="/static/builder.html" class="nav-item" id="nav-builder">
+        <a href="/static/builder.html?v=2" class="nav-item" id="nav-builder">
             <ion-icon name="construct-outline"></ion-icon> Visual Builder
         </a>
         <a href="/static/match.html" class="nav-item" id="nav-match">

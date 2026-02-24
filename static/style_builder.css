@@ -178,3 +178,30 @@ body {
     /* Dark pencil lead color */
     filter: blur(0.5px);
 }
+
+/* Overwrite generated overlay for new layout */
+.generated-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 550px;
+    background: var(--forensic-panel);
+    padding: 2rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+}
+
+.generated-overlay img {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    background: white;
+    border-radius: 4px;
+}

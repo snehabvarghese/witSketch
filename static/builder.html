@@ -5,155 +5,214 @@
     <meta charset="UTF-8">
     <title>Visual Composer - WitSketch</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=3">
+    <link rel="stylesheet" href="/static/style_builder.css?v=3">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
 </head>
 
 <body>
-    <div id="nav-placeholder"></div>
+    <!-- We use the custom builder layout classes from style_builder.css here -->
+    <div class="builder-layout">
 
-    <div class="main-content">
-        <h1>Face Composer</h1>
-        <p class="subtitle">Drag features onto the canvas to build a face.</p>
-
-        <div class="builder-container">
-            <!-- Left: Palette -->
-            <div class="palette-panel">
-                <div class="palette-tabs">
-                    <button class="tab-btn active" data-tab="face">Face Shape</button>
-                    <button class="tab-btn" data-tab="hair">Hair</button>
-                    <button class="tab-btn" data-tab="eyes">Eyes</button>
-                    <button class="tab-btn" data-tab="brows">Brows</button>
-                    <button class="tab-btn" data-tab="nose">Nose</button>
-                    <button class="tab-btn" data-tab="mouth">Mouth</button>
-                </div>
-
-                <div class="palette-grid" id="paletteGrid">
-                    <!-- Populated by JS -->
-                </div>
+        <!-- Column 1: Left Sidebar (Categories) -->
+        <div class="category-sidebar">
+            <!-- Icons will map to JS tabs -->
+            <div class="cat-icon active" data-tab="head">
+                <ion-icon name="person-outline"></ion-icon>
+                <span>Head</span>
             </div>
-
-            <!-- Right: Canvas -->
-            <div class="canvas-panel">
-                <div class="face-canvas" id="faceCanvas">
-                    <!-- Dropped items appear here -->
-                    <div class="placed-feature placed-eyes hidden" id="item-eyes">
-                        <ion-icon name="eye-outline"></ion-icon><ion-icon name="eye-outline"></ion-icon>
-                    </div>
-                    <div class="placed-feature placed-brows hidden" id="item-brows">
-                        <ion-icon name="remove-outline"></ion-icon><ion-icon name="remove-outline"></ion-icon>
-                    </div>
-                    <div class="placed-feature placed-nose hidden" id="item-nose">
-                        <ion-icon name="triangle-outline"></ion-icon>
-                    </div>
-                    <div class="placed-feature placed-mouth hidden" id="item-mouth">
-                        <ion-icon name="remove-outline"></ion-icon>
-                    </div>
-                    <div class="placed-feature placed-hair hidden" id="item-hair">
-                        <ion-icon name="cut-outline"></ion-icon>
-                    </div>
-                </div>
-
-                <div class="generated-overlay hidden" id="resultOverlay">
-                    <img id="resultImage" src="">
-                    <button class="small-btn" onclick="document.getElementById('resultOverlay').classList.add('hidden')"
-                        style="margin-top: 1rem">Close</button>
-                    <button class="small-btn" id="downloadBtn" style="margin-top: 1rem">Download</button>
-                </div>
-
-                <div style="margin-top: 2rem; display: flex; gap: 1rem; z-index: 10;">
-                    <button id="generateBtn" class="primary-btn">
-                        <ion-icon name="aperture-outline"></ion-icon> Generate Composite
-                    </button>
-                    <button id="resetBtn" class="icon-btn" style="width: auto; padding: 0 1rem;">
-                        Reset
-                    </button>
-                </div>
+            <div class="cat-icon" data-tab="hair">
+                <ion-icon name="cut-outline"></ion-icon> <!-- or something looking like hair -->
+                <span>Hair</span>
+            </div>
+            <div class="cat-icon" data-tab="eyes">
+                <ion-icon name="eye-outline"></ion-icon>
+                <span>Eyes</span>
+            </div>
+            <div class="cat-icon" data-tab="eyebrows">
+                <ion-icon name="analytics-outline"></ion-icon> <!-- curve -->
+                <span>Eyebrows</span>
+            </div>
+            <div class="cat-icon" data-tab="nose">
+                <ion-icon name="triangle-outline"></ion-icon>
+                <span>Nose</span>
+            </div>
+            <div class="cat-icon" data-tab="lips">
+                <ion-icon name="remove-outline"></ion-icon>
+                <span>Lips</span>
+            </div>
+            <div class="cat-icon" data-tab="mustach">
+                <ion-icon name="git-network-outline"></ion-icon> <!-- mustacheish shape -->
+                <span>Mustache</span>
+            </div>
+            <div class="cat-icon" data-tab="more">
+                <ion-icon name="ellipsis-horizontal-circle-outline"></ion-icon>
+                <span>More</span>
             </div>
         </div>
+
+        <!-- Column 2: Center (Canvas) -->
+        <div class="canvas-area">
+            <div class="paper-canvas">
+                <div class="face-canvas" id="faceCanvas"
+                    style="width:100%; height:100%; border:none; background:transparent;">
+                    <!-- Dropped image items appear here dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- Overlay for generation -->
+            <div class="generated-overlay hidden" id="resultOverlay"
+                style="background:#162a47; color:white; border-color:white;">
+                <img id="resultImage" src="">
+                <button class="action-btn-flat"
+                    onclick="document.getElementById('resultOverlay').classList.add('hidden')"
+                    style="width:100%; margin-top:1rem;">Close</button>
+            </div>
+        </div>
+
+        <!-- Column 3: Right Sidebar (Options) -->
+        <div class="options-sidebar">
+            <div class="top-actions">
+                <!-- Save will trigger download -->
+                <button class="action-btn-flat" id="saveBtn">Save</button>
+                <button class="action-btn-flat" id="resetBtn">Reset</button>
+                <!-- Compare will trigger composite generation for now -->
+                <button class="action-btn-flat" id="generateBtn">Compare</button>
+            </div>
+
+            <div class="options-header">
+                <h3 id="categoryTitle">HEAD SHAPES TO CHOOSE FROM</h3>
+                <div style="display:flex; gap: 8px; align-items:center;">
+                    <label style="font-size:0.75rem; color:#aaa;"
+                        title="Click and drag on the canvas to move the selected shape">Size:</label>
+                    <input type="range" id="scaleSlider" min="0.5" max="1.5" step="0.05" value="1" style="width:70px">
+                    <button class="action-btn-flat" id="deleteShapeBtn" style="padding: 0.4rem 0.8rem;">Delete</button>
+                </div>
+            </div>
+            <div style="font-size: 0.75rem; color: #888; padding: 0 1.5rem 0.5rem; text-align: right;">
+                💡 <i>Click & drag on the canvas to move the selected feature.</i>
+            </div>
+
+            <div class="shape-grid" id="paletteGrid">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
     </div>
 
-    <script src="/static/nav.js"></script>
+    <script src="/static/nav.js?v=3"></script>
     <script>
-        // --- Data ---
-        const assets = {
-            face: [
-                { id: 'oval', label: 'Oval', icon: 'ellipse-outline', val: 'oval' },
-                { id: 'round', label: 'Round', icon: 'radio-button-off-outline', val: 'round' },
-                { id: 'square', label: 'Square', icon: 'square-outline', val: 'square' },
-            ],
-            hair: [
-                { id: 'short', label: 'Short', icon: 'cut-outline', val: 'short' },
-                { id: 'medium', label: 'Medium', icon: 'person-outline', val: 'medium' },
-                { id: 'long', label: 'Long', icon: 'sparkles-outline', val: 'long' },
-                { id: 'bald', label: 'Bald', icon: 'remove-circle-outline', val: 'bald' },
-            ],
-            eyes: [
-                { id: 'normal', label: 'Normal', icon: 'eye-outline', val: 'normal' },
-                { id: 'narrow', label: 'Narrow', icon: 'eye-off-outline', val: 'narrow' },
-                { id: 'wide', label: 'Wide', icon: 'alert-circle-outline', val: 'wide' },
-            ],
-            brows: [
-                { id: 'thin', label: 'Thin', icon: 'remove-outline', val: 'thin' },
-                { id: 'thick', label: 'Thick', icon: 'menu-outline', val: 'thick' },
-            ],
-            nose: [
-                { id: 'small', label: 'Small', icon: 'triangle-outline', val: 'small' },
-                { id: 'wide', label: 'Wide', icon: 'caret-up-outline', val: 'wide' },
-            ],
-            mouth: [
-                { id: 'smile', label: 'Smile', icon: 'happy-outline', val: 'smile' },
-                { id: 'neutral', label: 'Neutral', icon: 'remove-outline', val: 'neutral' },
-            ]
-        };
+        // --- State ---
+        // Store selected parts by category: {category: {src: string, el: ImageElement}}
+        const state = {};
 
-        const state = {
-            face_shape: 'oval',
-            hair_length: 'short', // default
-            eyes: 'normal',
-            brows: 'normal',
-            nose: 'normal',
-            mouth: 'normal',
-            gender: 'male' // default
-        };
+        let availableElements = {}; // Filled by API
 
-        // --- UI Logic ---
+        // --- DOM Elements ---
         const paletteGrid = document.getElementById('paletteGrid');
         const faceCanvas = document.getElementById('faceCanvas');
-        const tabs = document.querySelectorAll('.tab-btn');
+        const tabs = document.querySelectorAll('.cat-icon'); // changed from .tab-btn
+        const categoryTitle = document.getElementById('categoryTitle'); // New element
+
+        let currentActiveCategory = 'head'; // keep track for deletion
+
+        // Define generic z-indexes for proper ordering
+        const zIndexMap = {
+            head: 10,
+            hair: 50,
+            eyes: 20,
+            brows: 30, // Usually they are 'eyebrows' but mapping to generic
+            eyebrows: 30,
+            nose: 25,
+            mouth: 25,
+            lips: 25,
+            mustach: 40,
+            more: 45
+        };
+
+        // Initialize Builder
+        async function init() {
+            try {
+                const res = await fetch('/api/elements');
+                availableElements = await res.json();
+
+                if (availableElements.error) {
+                    console.error(availableElements.error);
+                    paletteGrid.innerHTML = "Error loading elements.";
+                    return;
+                }
+
+                // Set up tabs dynamically based on folders found or enforce a specific array
+                setupTabs();
+            } catch (e) {
+                console.error("Failed to load elements", e);
+            }
+        }
+
+        function setupTabs() {
+            // Re-use existing tabs but modify behavior
+
+            // Map our UI tab-names to folder names
+            const tabMapping = {
+                'head': 'head',
+                'hair': 'hair',
+                'eyes': 'eyes',
+                'eyebrows': 'eyebrows',
+                'nose': 'nose',
+                'lips': 'lips',
+                'mustach': 'mustach',
+                'more': 'more'
+            };
+
+            tabs.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    tabs.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    const uiTab = btn.dataset.tab;
+                    const folderName = tabMapping[uiTab] || uiTab;
+                    currentActiveCategory = folderName;
+                    renderPalette(folderName);
+
+                    const imgObj = state[currentActiveCategory];
+                    document.getElementById('scaleSlider').value = imgObj ? (imgObj.scale || 1) : 1;
+                });
+            });
+
+            // Start with head
+            renderPalette('head');
+        }
 
         // Render Palette
         function renderPalette(category) {
+            // Update Title
+            categoryTitle.textContent = `${category.toUpperCase()} SHAPES TO CHOOSE FROM`;
+
             paletteGrid.innerHTML = '';
-            const items = assets[category];
-            items.forEach(item => {
+            const items = availableElements[category];
+
+            if (!items || items.length === 0) {
+                paletteGrid.innerHTML = '<span style="color:#222; font-size: 0.8rem;">No options available</span>';
+                return;
+            }
+
+            items.forEach((srcPath, index) => {
                 const el = document.createElement('div');
-                el.className = 'draggable-item';
+                el.className = 'shape-item'; // changed class to match new CSS
                 el.draggable = true;
-                el.innerHTML = `<ion-icon name="${item.icon}"></ion-icon><span>${item.label}</span>`;
+
+                // Show thumbnail
+                el.innerHTML = `<img src="${srcPath}" style="width:80%; height:80%; object-fit:contain; filter: contrast(1.2)" />`;
 
                 // Drag Events
                 el.addEventListener('dragstart', (e) => {
                     e.dataTransfer.setData('type/category', category);
-                    e.dataTransfer.setData('type/val', item.val);
-                    e.dataTransfer.setData('type/icon', item.icon);
+                    e.dataTransfer.setData('type/src', srcPath);
                 });
 
                 paletteGrid.appendChild(el);
             });
         }
-
-        // Tabs
-        tabs.forEach(btn => {
-            btn.addEventListener('click', () => {
-                tabs.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                renderPalette(btn.dataset.tab);
-            });
-        });
-
-        // Initialize
-        renderPalette('face');
 
         // Drop Zone
         faceCanvas.addEventListener('dragover', (e) => {
@@ -170,99 +229,234 @@
             faceCanvas.classList.remove('drag-over');
 
             const category = e.dataTransfer.getData('type/category');
-            const val = e.dataTransfer.getData('type/val');
-            const icon = e.dataTransfer.getData('type/icon');
+            const src = e.dataTransfer.getData('type/src');
 
-            if (category && val) {
-                updateState(category, val, icon);
+            if (category && src) {
+                placeItemOnCanvas(category, src);
             }
         });
 
-        function updateState(cat, val, iconName) {
-            // Update Data
-            if (cat === 'face') state.face_shape = val;
-            if (cat === 'hair') state.hair_length = val;
-            // Others are metadata for now
-            state[cat] = val;
+        function updateTransform(imgObj) {
+            if (!imgObj || !imgObj.el) return;
+            const tx = imgObj.tx || 0;
+            const ty = imgObj.ty || 0;
+            const scale = imgObj.scale || 1;
+            imgObj.el.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+        }
 
-            // Visual Update
-            if (cat === 'face') {
-                // Change canvas shape
-                if (val === 'square') faceCanvas.style.borderRadius = '20px 20px 60px 60px';
-                if (val === 'round') faceCanvas.style.borderRadius = '50%';
-                if (val === 'oval') faceCanvas.style.borderRadius = '200px 200px 150px 150px';
-            } else {
-                // Show icon on face
-                const placeholder = document.getElementById(`item-${cat}`);
-                if (placeholder) {
-                    placeholder.classList.remove('hidden');
-                    // Update icon if needed, though we use generic ones for positioning
-                    // For hair, we might want to change opacity or something
-                    console.log(`Placed ${val} on ${cat}`);
+        function placeItemOnCanvas(category, src) {
+            // Remove existing element for this category if any
+            if (state[category] && state[category].el) {
+                state[category].el.remove();
+            }
 
-                    // Simple anim
-                    placeholder.style.transform = 'scale(1.2) translateX(-45%)'; // Center shift
-                    setTimeout(() => placeholder.style.transform = 'scale(1) translateX(-50%)', 200);
-                }
+            // Create new image element
+            const img = document.createElement('img');
+            img.src = src;
+            img.className = 'placed-image';
+            img.draggable = false;
+
+            // Absolute positioning
+            img.style.position = 'absolute';
+            img.style.top = '0';
+            img.style.left = '0';
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'contain';
+            img.style.pointerEvents = 'none'; // so we can drop over it
+
+            // Z-index ordering
+            img.style.zIndex = zIndexMap[category] || 10;
+
+            // Simple anim start
+            img.style.opacity = '0';
+            img.style.transition = 'opacity 0.3s ease';
+
+            faceCanvas.appendChild(img);
+
+            // Save to state with default coords
+            state[category] = { src: src, el: img, tx: 0, ty: 0, scale: 1 };
+
+            // Trigger anim
+            setTimeout(() => {
+                img.style.opacity = '1';
+                updateTransform(state[category]);
+            }, 10);
+
+            if (category === currentActiveCategory) {
+                document.getElementById('scaleSlider').value = 1;
             }
         }
 
-        // Generate
-        document.getElementById('generateBtn').addEventListener('click', async () => {
+        // Delete currently active shape
+        document.getElementById('deleteShapeBtn').addEventListener('click', () => {
+            if (state[currentActiveCategory] && state[currentActiveCategory].el) {
+                state[currentActiveCategory].el.remove();
+                delete state[currentActiveCategory];
+            }
+        });
+
+        // --- Drag & Scale logic ---
+        let isDragging = false;
+        let startX = 0, startY = 0;
+
+        faceCanvas.addEventListener('mousedown', (e) => {
+            if (!state[currentActiveCategory] || !state[currentActiveCategory].el) return;
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const imgObj = state[currentActiveCategory];
+            if (!imgObj || !imgObj.el) return;
+
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+
+            imgObj.tx = (imgObj.tx || 0) + dx;
+            imgObj.ty = (imgObj.ty || 0) + dy;
+
+            startX = e.clientX;
+            startY = e.clientY;
+
+            imgObj.el.style.transition = 'none'; // Instant feedback
+            updateTransform(imgObj);
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDragging) {
+                const imgObj = state[currentActiveCategory];
+                if (imgObj && imgObj.el) {
+                    imgObj.el.style.transition = 'opacity 0.3s ease'; // restore
+                }
+            }
+            isDragging = false;
+        });
+
+        document.getElementById('scaleSlider').addEventListener('input', (e) => {
+            const imgObj = state[currentActiveCategory];
+            if (imgObj && imgObj.el) {
+                imgObj.scale = parseFloat(e.target.value);
+                imgObj.el.style.transition = 'none';
+                updateTransform(imgObj);
+            }
+        });
+
+        document.getElementById('scaleSlider').addEventListener('change', () => {
+            const imgObj = state[currentActiveCategory];
+            if (imgObj && imgObj.el) {
+                imgObj.el.style.transition = 'opacity 0.3s ease';
+            }
+        });
+
+        // Abstract generation logic to be reused
+        async function generateComposite(isSaveMode = false) {
             const btn = document.getElementById('generateBtn');
-            btn.innerHTML = '<div class="loader" style="width:20px;height:20px;border-width:2px"></div> Generating...';
+            const originalBtnHtml = btn.innerHTML;
+
+            if (!isSaveMode) {
+                btn.innerHTML = '<div class="loader" style="width:20px;height:20px;border-width:2px;border-color:white;border-top-color:transparent;"></div> Compositing...';
+            }
 
             try {
-                // Map state to backend
-                // Some are direct, some are ignored but sent
-                const payload = {
-                    description: "composite sketch",
-                    noise_scale: 1.0,
-                    manual_attributes: {
-                        ...state,
-                        // Fix for Hair: 'bald' -> short hair mapping if needed, or just let backend handle 'short' default
-                    }
-                };
+                // Determine output dimension
+                const targetW = 512;
+                const targetH = 512;
 
-                const res = await fetch('/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                const canvas = document.createElement('canvas');
+                canvas.width = targetW;
+                canvas.height = targetH;
+                const ctx = canvas.getContext('2d');
+
+                // White background
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, targetW, targetH);
+
+                // Sort categories by z-index to draw back-to-front
+                const sortedCategories = Object.keys(state).sort((a, b) => {
+                    const zA = zIndexMap[a] || 0;
+                    const zB = zIndexMap[b] || 0;
+                    return zA - zB;
                 });
-                const data = await res.json();
 
-                document.getElementById('resultImage').src = data.image;
-                document.getElementById('resultOverlay').classList.remove('hidden');
+                // Load all images and draw them
+                for (let cat of sortedCategories) {
+                    const imgObj = state[cat];
+                    if (imgObj && imgObj.src) {
+                        await drawImageOntoCanvas(ctx, imgObj.src, targetW, targetH, imgObj);
+                    }
+                }
+
+                // Show result or Download
+                const compositeDataUrl = canvas.toDataURL('image/png');
+
+                if (isSaveMode) {
+                    const a = document.createElement('a');
+                    a.href = compositeDataUrl;
+                    a.download = 'sketch_composite.png';
+                    a.click();
+                } else {
+                    document.getElementById('resultImage').src = compositeDataUrl;
+                    document.getElementById('resultOverlay').classList.remove('hidden');
+                }
 
             } catch (e) {
                 alert('Generation failed');
                 console.error(e);
             } finally {
-                btn.innerHTML = '<ion-icon name="aperture-outline"></ion-icon> Generate Composite';
+                if (!isSaveMode) {
+                    btn.innerHTML = originalBtnHtml;
+                }
             }
+        }
+
+        // Generate Composite using HTML5 Canvas directly in browser
+        document.getElementById('generateBtn').addEventListener('click', async () => {
+            await generateComposite(false);
         });
+
+        // Helper to load image properly before drawing
+        function drawImageOntoCanvas(ctx, src, w, h, imgObj) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => {
+                    ctx.save();
+                    const tx = imgObj.tx || 0;
+                    const ty = imgObj.ty || 0;
+                    const scale = imgObj.scale || 1;
+
+                    ctx.translate(w / 2 + tx, h / 2 + ty);
+                    ctx.scale(scale, scale);
+                    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+                    ctx.restore();
+                    resolve();
+                };
+                img.onerror = reject;
+                img.src = src;
+            });
+        }
 
         document.getElementById('resetBtn').addEventListener('click', () => {
-            Object.assign(state, {
-                face_shape: 'oval',
-                hair_length: 'short',
-                eyes: 'normal',
-                brows: 'normal',
-                nose: 'normal',
-                mouth: 'normal'
+            // Remove DOM elements
+            Object.values(state).forEach(obj => {
+                if (obj.el) obj.el.remove();
             });
-            faceCanvas.style.borderRadius = '200px 200px 150px 150px';
-            document.querySelectorAll('.placed-feature').forEach(el => el.classList.add('hidden'));
+            // Clear state
+            for (let key in state) delete state[key];
         });
 
-        // Download
-        document.getElementById('downloadBtn').addEventListener('click', () => {
-            const a = document.createElement('a');
-            a.href = document.getElementById('resultImage').src;
-            a.download = 'sketch_composite.png';
-            a.click();
+        // Download (Save)
+        document.getElementById('saveBtn').addEventListener('click', async () => {
+            // Trigger generate logic silently to get standard canvas output
+            // Then click the link
+            await generateComposite(true);
         });
 
+        // Run
+        init();
     </script>
 </body>
 
