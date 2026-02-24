@@ -61,7 +61,7 @@ async def get_face_elements():
         if os.path.exists(cat_dir):
             files = []
             for f in sorted(os.listdir(cat_dir)):
-                if f.lower().endswith('.png'):
+                if f.lower().endswith('.png') and not f.lower().startswith('group'):
                     # Provide the URL path that the frontend will use to load the image
                     files.append(f"/elements/{category}/{f}")
             elements[category] = files
