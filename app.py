@@ -197,6 +197,11 @@ class GenerateRequest(BaseModel):
     manual_attributes: dict = None
     mode: str = "diffusion"  # "diffusion" (accurate) or "gan" (fast fallback)
 
+class GenerateFromBuilderRequest(BaseModel):
+    image_b64: str
+    prompt: Optional[str] = ""
+    style: Optional[str] = "sketch"
+
 # --- Endpoints ---
 
 # --- Auth Models ---
@@ -286,6 +291,52 @@ async def generate_sketch(req: GenerateRequest):
         "image": f"data:image/png;base64,{b64_img}",
         "attributes": target_attrs,
     }
+
+@app.post("/generate_from_builder")
+async def generate_from_builder(req: GenerateFromBuilderRequest):
+    stats["generated_count"] += 1
+    
+    diff_gen = model_state["diffusion_gen"]
+    if diff_gen is None or not hasattr(diff_gen, 'img2img_pipe'):
+        raise HTTPException(status_code=500, detail="Img2Img generator not available")
+        
+    try:
+        # Decode base64 image
+        header, encoded = req.image_b64.split(",", 1)
+        image_data = base64.b64decode(encoded)
+        init_image = Image.open(io.BytesIO(image_data))
+        
+        # Build prompt
+        extra_prompt = req.prompt.strip()
+        
+        if req.style == "real":
+            base_prompt = "photorealistic human face, highly detailed, real person, 8k photography style, symmetrical features"
+        else:
+            base_prompt = "realistic pencil face sketch, high quality"
+
+        if extra_prompt:
+            final_prompt = f"{extra_prompt}, {base_prompt}"
+        else:
+            final_prompt = base_prompt
+            
+        print(f"[Img2Img] Generating from composite. Style: '{req.style}', Prompt: '{final_prompt}'")
+        
+        # Generate refined sketch
+        pil_img = diff_gen.generate_img2img(
+            init_image=init_image,
+            description=final_prompt,
+            strength=0.7, # 0.7 gives a good balance of creativity vs source structure
+            num_inference_steps=30,
+            guidance_scale=7.5,
+        )
+        
+        b64_img = pil_to_base64(pil_img)
+        return {
+            "image": f"data:image/png;base64,{b64_img}",
+        }
+    except Exception as e:
+        print(f"[Img2Img Error] {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/match")
 async def match_criminal(file: UploadFile = File(...)):

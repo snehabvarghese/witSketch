@@ -50,7 +50,7 @@ class DiffusionSketchGenerator:
 
     def load(self):
         """Load the pipeline (call once at startup)."""
-        from diffusers import StableDiffusionPipeline
+        from diffusers import StableDiffusionPipeline, StableDiffusionImg2ImgPipeline
 
         print(f"[DiffusionGen] Loading {self.MODEL_ID} on {self.device} ...")
         print("[DiffusionGen] First run will download ~4 GB — please wait...")
@@ -65,10 +65,12 @@ class DiffusionSketchGenerator:
             requires_safety_checker=False,
         )
         self.pipe = self.pipe.to(self.device)
+        self.img2img_pipe = StableDiffusionImg2ImgPipeline(**self.pipe.components)
 
         # Memory optimisations
         if self.device in ("mps", "cuda"):
             self.pipe.enable_attention_slicing()
+            self.img2img_pipe.enable_attention_slicing()
 
         print("[DiffusionGen] Model loaded and ready.")
 
@@ -112,6 +114,45 @@ class DiffusionSketchGenerator:
             generator=generator,
             height=512,
             width=512,
+        )
+
+        pil_img = result.images[0]
+        return _to_sketch(pil_img)
+
+    def generate_img2img(
+        self,
+        init_image: Image.Image,
+        description: str,
+        strength: float = 0.65,
+        num_inference_steps: int = 30,
+        guidance_scale: float = 7.5,
+        seed: int | None = None,
+    ) -> Image.Image:
+        """
+        Generate a refined sketch from an initial composite image and description.
+        """
+        if not hasattr(self, 'img2img_pipe') or self.img2img_pipe is None:
+            raise RuntimeError("Model not loaded. Call .load() first.")
+
+        prompt = POSITIVE_PREFIX + description
+
+        if seed is not None:
+            generator = torch.Generator(device=self.device).manual_seed(seed)
+        else:
+            generator = torch.Generator(device=self.device).manual_seed(
+                torch.randint(0, 2**31, (1,)).item()
+            )
+
+        init_image = init_image.resize((512, 512)).convert("RGB")
+
+        result = self.img2img_pipe(
+            prompt=prompt,
+            negative_prompt=NEGATIVE_PROMPT,
+            image=init_image,
+            strength=strength,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            generator=generator,
         )
 
         pil_img = result.images[0]
