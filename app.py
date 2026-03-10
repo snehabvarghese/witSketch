@@ -252,6 +252,7 @@ class GenerateRequest(BaseModel):
     manual_attributes: dict = None
     mode: str = "diffusion"  # "diffusion" (accurate) or "gan" (fast fallback)
     style: str = "sketch"    # "sketch" or "realistic"
+    views: Optional[list[str]] = None  # Optional list like ["front", "left_profile", "right_profile"]
 
 class GenerateFromBuilderRequest(BaseModel):
     image_b64: str
@@ -305,21 +306,44 @@ async def generate_sketch(req: GenerateRequest):
         try:
             seed = torch.randint(0, 2**31, (1,)).item()
             
-            # Generate image based on requested style
-            pil_img = diff_gen.generate(
-                description=fused_desc,
-                num_inference_steps=20,
-                guidance_scale=7.5,
-                seed=seed,
-                style=req.style
-            )
-            b64_img = pil_to_base64(pil_img)
-            
-            return {
-                "image": f"data:image/png;base64,{b64_img}",
-                "style": req.style,
-                "attributes": {"mode": "diffusion", "prompt": fused_desc},
-            }
+            if req.views and len(req.views) > 0:
+                images_data = []
+                for view in req.views:
+                    view_mod = f"{view.replace('_', ' ')} view, " if view != "front" else ""
+                    pil_img = diff_gen.generate(
+                        description=fused_desc,
+                        num_inference_steps=20,
+                        guidance_scale=7.5,
+                        seed=seed,
+                        style=req.style,
+                        view_modifier=view_mod
+                    )
+                    b64_img = pil_to_base64(pil_img)
+                    images_data.append({
+                        "view": view,
+                        "image": f"data:image/png;base64,{b64_img}"
+                    })
+                return {
+                    "images": images_data,
+                    "style": req.style,
+                    "attributes": {"mode": "diffusion", "prompt": fused_desc},
+                }
+            else:
+                # Generate single image based on requested style
+                pil_img = diff_gen.generate(
+                    description=fused_desc,
+                    num_inference_steps=20,
+                    guidance_scale=7.5,
+                    seed=seed,
+                    style=req.style
+                )
+                b64_img = pil_to_base64(pil_img)
+                
+                return {
+                    "image": f"data:image/png;base64,{b64_img}",
+                    "style": req.style,
+                    "attributes": {"mode": "diffusion", "prompt": fused_desc},
+                }
         except Exception as e:
             print(f"[Diffusion] Error: {e} — falling back to GAN")
 
@@ -609,6 +633,7 @@ async def add_record(
     crime: str = Form(...),
     sentence: str = Form(...),
     risk_level: str = Form(...),
+    description: str = Form(...),
     file: UploadFile = File(...)
 ):
     # Security check (mock)
@@ -636,7 +661,11 @@ async def add_record(
         emb = model_state["encoder"].get_embedding(img_tensor)
         emb_list = emb.cpu().numpy().tolist()[0]
         
-    # 3. Create Record
+    # 3. Create Record and attribute vector
+    attrs = extract_attributes_simple(description)
+    attr_vec_tensor = attrs_to_vector(attrs).to(DEVICE)
+    attr_vec_list = attr_vec_tensor.cpu().numpy().tolist()
+    
     new_id = f"custom_{len(model_state['db'])}"
     new_record = {
         "id": new_id,
@@ -646,19 +675,27 @@ async def add_record(
         "sentence": sentence,
         "photo_path": file_path,
         "risk_level": risk_level,
-        "embedding": emb_list
+        "embedding": emb_list,
+        "attributes": attrs,
+        "attr_vector": attr_vec_list
     }
     
     # 4. Update In-Memory DB & File
     model_state["db"].append(new_record)
-    # Re-stack embeddings
-    # Concatenate new embedding to existing tensor 
-    # (Checking if not None first)
+    
+    # Re-stack FaceNet embeddings
     new_emb_tensor = torch.tensor([emb_list]).to(DEVICE)
     if model_state["db_embeddings"] is not None:
         model_state["db_embeddings"] = torch.cat([model_state["db_embeddings"], new_emb_tensor], dim=0)
     else:
         model_state["db_embeddings"] = new_emb_tensor
+        
+    # Re-stack Attribute vectors
+    new_attr_tensor = attr_vec_tensor.unsqueeze(0)
+    if model_state["db_attr_vectors"] is not None:
+        model_state["db_attr_vectors"] = torch.cat([model_state["db_attr_vectors"], new_attr_tensor], dim=0)
+    else:
+        model_state["db_attr_vectors"] = new_attr_tensor
         
     # Save to JSON (Backup)
     with open(DB_PATH, 'w') as f:
@@ -711,7 +748,7 @@ async def cctv_upload(
         raw_matches = matcher.scan_video(
             video_path=temp_vid_path, 
             target_embedding=target_emb,
-            threshold=0.6,    # stricter threshold for CCTV
+            threshold=0.40,   # Lowered threshold to account for CCTV quality, lighting, and angles
             frame_skip=15     # check twice a second for 30fps
         )
         
@@ -730,8 +767,8 @@ async def cctv_upload(
                 "face_image": f"data:image/png;base64,{b64_crop}"
             })
             
-        # Return top 10 matches to avoid massive payloads
-        return {"matches": formatted_matches[:10]}
+        # Return top 20 matches to give investigators more options without massive payloads
+        return {"matches": formatted_matches[:20]}
         
     except Exception as e:
         print(f"[CCTV Error] {e}")

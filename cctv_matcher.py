@@ -15,7 +15,13 @@ class CCTVMatcher:
         
         # MTCNN for face detection and cropping
         # keep_all=True allows detecting multiple faces in one frame
-        self.mtcnn = MTCNN(keep_all=True, device=self.device)
+        # Adaptive Pooling on MPS often fails for MTCNN, so force face detection to CPU
+        self.mtcnn = MTCNN(
+            keep_all=True, 
+            device="cpu",
+            min_face_size=20,          # Catch smaller/background faces (default is 20)
+            thresholds=[0.4, 0.5, 0.5] # Lowered thresholds from [0.6, 0.7, 0.7] to catch faces in bad lighting/CCTV quality
+        )
         
         self.transform = transforms.Compose([
             transforms.Resize((256, 256)),

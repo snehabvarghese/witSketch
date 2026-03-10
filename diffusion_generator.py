@@ -95,7 +95,8 @@ class DiffusionSketchGenerator:
         num_inference_steps: int = 20,
         guidance_scale: float = 7.5,
         seed: int | None = None,
-        style: str = "sketch"
+        style: str = "sketch",
+        view_modifier: str = ""
     ) -> Image.Image:
         """
         Generate a portrait from a plain-English description.
@@ -114,10 +115,10 @@ class DiffusionSketchGenerator:
             raise RuntimeError("Model not loaded. Call .load() first.")
 
         if style == "realistic":
-            prompt = REAL_PREFIX + description
+            prompt = REAL_PREFIX + view_modifier + description
             negative_prompt = REAL_NEGATIVE
         else:
-            prompt = POSITIVE_PREFIX + description
+            prompt = POSITIVE_PREFIX + view_modifier + description
             negative_prompt = NEGATIVE_PROMPT
 
         # Build generator for reproducibility (or random if seed is None)

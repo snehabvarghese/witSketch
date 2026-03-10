@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Multi-Angle Reconstruction - WitSketch</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=3">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <style>
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        @media (max-width: 900px) {
+            .grid-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .controls-card {
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .results-container {
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 2rem;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .angles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            width: 100%;
+        }
+
+        .angle-card {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .angle-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+
+        .angle-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 6px;
+            margin-bottom: 0.8rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .angle-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .placeholder-text {
+            color: #555;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="nav-placeholder"></div>
+
+    <div class="main-content">
+        <h1 style="margin-bottom:0.4rem">Sketch-to-Video / Multi-Angle</h1>
+        <p class="subtitle" style="margin-bottom:1.5rem">
+            Generate multiple perspectives of a suspect from a single description to aid in identification.
+        </p>
+
+        <div class="grid-layout">
+            <!-- Controls -->
+            <div class="controls-card">
+                <div class="input-group" style="margin-bottom:1.5rem">
+                    <label>Suspect Description</label>
+                    <textarea id="descInput" rows="4"
+                        style="width:100%; background:rgba(15,23,42,0.6); border:1px solid var(--glass-border); border-radius:6px; padding:0.8rem; color:white; font-family:inherit; resize:vertical;"
+                        placeholder="e.g. 'young man with short black hair and glasses' (Any language)"></textarea>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="font-size:0.8rem; display:block; margin-bottom: 0.4rem;">Generation Style</label>
+                    <select id="genStyle"
+                        style="width:100%; padding:0.6rem; border-radius:6px; background:rgba(15,23,42,0.8); color:#fff; border:1px solid var(--glass-border);">
+                        <option value="sketch">Forensic Sketch</option>
+                        <option value="realistic">Photorealistic</option>
+                    </select>
+                </div>
+
+                <button id="generateBtn" class="primary-btn" style="width:100%; padding:0.8rem;">
+                    <ion-icon name="videocam-outline" style="margin-right:8px"></ion-icon> Generate 3 Angles
+                </button>
+                <div class="status-bar" id="statusBar" style="margin-top:1rem; min-height:20px;"></div>
+            </div>
+
+            <!-- Results -->
+            <div class="results-container" id="resultsArea">
+                <div class="placeholder-text">
+                    <ion-icon name="images-outline"
+                        style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></ion-icon><br>
+                    Generated angles will appear here.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/nav.js?v=4"></script>
+    <script>
+        const generateBtn = document.getElementById('generateBtn');
+        const descInput = document.getElementById('descInput');
+        const resultsArea = document.getElementById('resultsArea');
+        const statusBar = document.getElementById('statusBar');
+        const styleSelect = document.getElementById('genStyle');
+
+        function setStatus(html) { statusBar.innerHTML = html; }
+        function loader() { return '<span class="loader-ring" style="width:14px; height:14px; border-width:2px; margin-right:6px"></span>'; }
+
+        generateBtn.addEventListener('click', async () => {
+            const desc = descInput.value.trim();
+            if (!desc) { alert('Please enter a description.'); return; }
+
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = `${loader()} Generating Angles...`;
+            resultsArea.innerHTML = `
+                <div style="text-align:center; padding:2rem">
+                    <div class="loader" style="width:40px;height:40px;border-width:3px;border-color:var(--primary);border-top-color:transparent;margin:0 auto 1rem;"></div>
+                    <div style="font-weight:600; font-size:1.1rem; margin-bottom:0.5rem">Generating Multiple Perspectives</div>
+                    <div style="color:#888; font-size:0.9rem">This locks down a visual identity seed and generates<br>Front, Left, and Right profiles. Takes ~45 seconds.</div>
+                </div>`;
+            setStatus(`${loader()} Interfacing with AI...`);
+
+            try {
+                const res = await fetch('/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        description: desc,
+                        mode: 'diffusion',
+                        style: styleSelect.value,
+                        views: ["front", "left_profile", "right_profile"]
+                    })
+                });
+
+                const data = await res.json();
+
+                if (data.images && data.images.length > 0) {
+                    let gridHtml = '<div class="angles-grid">';
+                    data.images.forEach(imgData => {
+                        const title = imgData.view.replace('_', ' ');
+                        gridHtml += `
+                            <div class="angle-card">
+                                <img src="${imgData.image}" alt="${title}">
+                                <div class="angle-title">${title}</div>
+                            </div>
+                        `;
+                    });
+                    gridHtml += '</div>';
+                    resultsArea.innerHTML = gridHtml;
+                    setStatus('<span style="color:#10b981">✓ Profiles generated successfully.</span>');
+                } else {
+                    resultsArea.innerHTML = '<div class="placeholder-text" style="color:#ef4444">Generation failed to return images.</div>';
+                    setStatus('');
+                }
+            } catch (err) {
+                console.error(err);
+                resultsArea.innerHTML = `<div class="placeholder-text" style="color:#ef4444">Error: ${err.message}</div>`;
+                setStatus('');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '<ion-icon name="videocam-outline" style="margin-right:8px"></ion-icon> Generate 3 Angles';
+            }
+        });
+    </script>
+</body>
+
+</html>
