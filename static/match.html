@@ -25,7 +25,22 @@
 
             <div id="previewContainer" class="hidden">
                 <img id="previewImg" src="">
-                <button id="matchActionBtn" class="primary-btn">Analyze Biometrics</button>
+                <div
+                    style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center; align-items: center;">
+                    <select id="locationFilter"
+                        style="padding: 0.6rem; border-radius: 6px; background: #1e1e2e; color: #fff; border: 1px solid #334155;">
+                        <option value="">Any Location</option>
+                        <option value="Downtown">Downtown</option>
+                        <option value="Northside">Northside</option>
+                        <option value="West End">West End</option>
+                        <option value="South Park">South Park</option>
+                        <option value="Eastside">Eastside</option>
+                        <option value="Midtown">Midtown</option>
+                        <option value="Harbor District">Harbor District</option>
+                        <option value="Industrial Zone">Industrial Zone</option>
+                    </select>
+                    <button id="matchActionBtn" class="primary-btn">Analyze Biometrics & Match</button>
+                </div>
             </div>
         </div>
 
@@ -61,6 +76,10 @@
                     <tr>
                         <td style="color:#888;padding:4px 8px 4px 0">Crime</td>
                         <td style="font-weight:600;color:#fa8072" id="mCrime">—</td>
+                    </tr>
+                    <tr>
+                        <td style="color:#888;padding:4px 8px 4px 0">Location</td>
+                        <td style="font-weight:600" id="mLocation">—</td>
                     </tr>
                     <tr>
                         <td style="color:#888;padding:4px 8px 4px 0">Sentence</td>
@@ -112,8 +131,11 @@
 
         document.getElementById('matchActionBtn').addEventListener('click', async () => {
             const file = fileInput.files[0];
+            const loc = document.getElementById('locationFilter').value;
+
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('location', loc);
 
             matchList.innerHTML = '<div class="loader"></div>';
             matchList.classList.remove('hidden');
@@ -142,7 +164,10 @@
 
             results.forEach((item, index) => {
                 const rec = item.match;
-                const scorePct = Math.round(item.score * 100);
+
+                // For image-based match, we have 'composite_score' (from loc logic) or just 'score'
+                const displayScore = item.composite_score || item.score;
+                const scorePct = Math.round(displayScore * 100);
 
                 const imgHtml = item.sketch_image
                     ? `<img src="${item.sketch_image}" alt="Suspect">`
@@ -162,7 +187,7 @@
                             <div class="fill" style="width: ${scorePct}%"></div>
                         </div>
                         <p class="detail">ID: ${rec.id || 'N/A'} &middot; Age: ${rec.age || 'N/A'}</p>
-                        <p class="detail">Crime: ${rec.crime} &middot; Sentence: ${rec.sentence || '—'}</p>
+                        <p class="detail">${rec.location || 'Unknown'} &middot; ${rec.crime}</p>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
                             <div class="risk-tag" style="margin-top: 0;">${rec.risk_level} Risk</div>
                             <button class="small-btn" onclick="openModal(${index})">View Details</button>
@@ -172,14 +197,41 @@
                 matchList.appendChild(card);
             });
 
+            // Add "Match Another Sketch" button
+            const resetBtnContainer = document.createElement('div');
+            resetBtnContainer.style.textAlign = 'center';
+            resetBtnContainer.style.marginTop = '2rem';
+            resetBtnContainer.innerHTML = `<button class="primary-btn" onclick="resetMatchFlow()">Match Another Sketch</button>`;
+            matchList.appendChild(resetBtnContainer);
+
             matchList.classList.remove('hidden');
+        }
+
+        function resetMatchFlow() {
+            // Reset state
+            matchResults = [];
+            fileInput.value = '';
+            document.getElementById('locationFilter').value = '';
+
+            // Reset UI
+            previewImg.src = '';
+            previewContainer.classList.add('hidden');
+            dropZone.classList.remove('hidden');
+
+            matchList.innerHTML = '';
+            matchList.classList.add('hidden');
+
+            // Scroll back to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function openModal(idx) {
             const item = matchResults[idx];
             if (!item) return;
             const rec = item.match;
-            const scorePct = Math.round(item.score * 100);
+
+            const displayScore = item.composite_score || item.score;
+            const scorePct = Math.round(displayScore * 100);
 
             let attrsHtml = '<span style="color:#666;font-size:0.8rem">No attribute data</span>';
             try {
@@ -201,6 +253,7 @@
             document.getElementById('mId').textContent = rec.id || '—';
             document.getElementById('mAge').textContent = rec.age || '—';
             document.getElementById('mCrime').textContent = rec.crime || '—';
+            document.getElementById('mLocation').textContent = rec.location || '—';
             document.getElementById('mSentence').textContent = rec.sentence || '—';
             document.getElementById('mScore').textContent = scorePct + '%';
 

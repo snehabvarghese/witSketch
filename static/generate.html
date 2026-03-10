@@ -312,23 +312,54 @@
         <div class="page-grid">
             <!-- Controls -->
             <div class="controls-card">
-                <div class="input-group" style="margin-bottom:1rem">
-                    <label>Suspect Description</label>
+                <div class="input-group" style="margin-bottom:0.5rem" id="witnessContainer">
+                    <label style="display:flex; justify-content:space-between">
+                        <span>Suspect Description (Witness 1)</span>
+                    </label>
                     <div class="search-box">
-                        <input type="text" id="descInput" placeholder="e.g. 'old man with beard and glasses'">
+                        <input type="text" class="descInput" id="descInput"
+                            placeholder="e.g. 'old man with beard and glasses' (Any language)">
                         <button id="micBtn" class="icon-btn" title="Voice Input">
                             <ion-icon name="mic-outline"></ion-icon>
                         </button>
                     </div>
-                    <div id="listeningIndicator" class="hidden"
-                        style="font-size:0.8rem;color:#a78bfa;margin-top:0.3rem">🎙 Listening…</div>
                 </div>
+
+                <div style="cursor:pointer;font-size:0.85rem;color:#6c63ff;margin-bottom:1.5rem" id="addWitnessBtn">
+                    + Add Additional Witness Description
+                </div>
+
+                <div id="listeningIndicator" class="hidden" style="font-size:0.8rem;color:#a78bfa;margin-bottom:1rem">🎙
+                    Listening…</div>
 
                 <div style="cursor:pointer;font-size:0.85rem;color:#888;margin-bottom:0.75rem"
                     onclick="document.getElementById('advancedOptions').classList.toggle('hidden')">
                     ⚙ Advanced Options
                 </div>
                 <div class="hidden" id="advancedOptions" style="margin-bottom:1rem">
+                    <div style="margin-bottom: 0.75rem;">
+                        <label style="font-size:0.8rem; display:block; margin-bottom: 0.2rem;">Generation Style</label>
+                        <select id="genStyle"
+                            style="width:100%; padding:0.4rem; border-radius:4px; background:#111; color:#fff; border:1px solid #333;">
+                            <option value="sketch">Forensic Sketch</option>
+                            <option value="realistic">Realistic Photo</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 0.75rem;">
+                        <label style="font-size:0.8rem; display:block; margin-bottom: 0.2rem;">Suspect Location</label>
+                        <select id="locationFilter"
+                            style="width:100%; padding:0.4rem; border-radius:4px; background:#111; color:#fff; border:1px solid #333;">
+                            <option value="">Any Location</option>
+                            <option value="Downtown">Downtown</option>
+                            <option value="Northside">Northside</option>
+                            <option value="West End">West End</option>
+                            <option value="South Park">South Park</option>
+                            <option value="Eastside">Eastside</option>
+                            <option value="Midtown">Midtown</option>
+                            <option value="Harbor District">Harbor District</option>
+                            <option value="Industrial Zone">Industrial Zone</option>
+                        </select>
+                    </div>
                     <label style="font-size:0.8rem">Noise Scale (sketch diversity)</label>
                     <input type="range" id="noiseScale" min="0.5" max="5.0" step="0.5" value="1.0"
                         oninput="document.getElementById('noiseValue').textContent=this.value">
@@ -344,13 +375,11 @@
             <!-- Results -->
             <div class="results-area">
 
-                <!-- Composite sketch panel -->
                 <div class="composite-panel">
-                    <div class="panel-title">🎨 Composite Illustration</div>
-                    <div class="panel-sub">AI-generated from your description. This is a composite — not a real person.
-                    </div>
-                    <div class="sketch-box" id="sketchBox">
-                        <span class="placeholder-text">Sketch will appear here</span>
+                    <div class="panel-title">🎨 AI Generation</div>
+                    <div class="panel-sub">Visualization based on your description.</div>
+                    <div class="sketch-box" id="resultBox">
+                        <span class="placeholder-text">Image will appear here</span>
                     </div>
                     <div id="detectedAttrs" style="margin-top:0.75rem"></div>
                 </div>
@@ -416,7 +445,7 @@
         // ─── DOM refs ────────────────────────────────────────────────────────────
         const generateBtn = document.getElementById('generateBtn');
         const descInput = document.getElementById('descInput');
-        const sketchBox = document.getElementById('sketchBox');
+        const resultBox = document.getElementById('resultBox');
         const matchGrid = document.getElementById('matchGrid');
         const statusBar = document.getElementById('statusBar');
         const detectedAttrs = document.getElementById('detectedAttrs');
@@ -424,16 +453,43 @@
         function setStatus(html) { statusBar.innerHTML = html; }
         function loader() { return '<span class="loader-ring"></span>'; }
 
+        // ─── Multi-Witness Logic ───────────────────────────────────────────────
+        const addWitnessBtn = document.getElementById('addWitnessBtn');
+        const witnessContainer = document.getElementById('witnessContainer');
+        let witnessCount = 1;
+
+        addWitnessBtn.addEventListener('click', () => {
+            witnessCount++;
+            const div = document.createElement('div');
+            div.style.marginBottom = '0.75rem';
+            div.innerHTML = `
+                <label style="display:flex; justify-content:space-between; font-size:0.85rem; color:#aaa; margin-bottom:4px">
+                    <span>Target Outline (Witness ${witnessCount})</span>
+                    <span style="color:#ef4444;cursor:pointer" onclick="this.parentElement.parentElement.remove()">✕ Remove</span>
+                </label>
+                <div class="search-box">
+                    <input type="text" class="descInput" placeholder="Additional details... (Any language)">
+                </div>
+            `;
+            witnessContainer.appendChild(div);
+        });
+
         // ─── Generate + Match flow ───────────────────────────────────────────────
         generateBtn.addEventListener('click', async () => {
-            const desc = descInput.value.trim();
-            if (!desc) { alert('Please enter a description.'); return; }
+            const inputs = Array.from(document.querySelectorAll('.descInput'));
+            const descriptions = inputs.map(i => i.value.trim()).filter(v => v);
+
+            if (descriptions.length === 0) { alert('Please enter at least one description.'); return; }
+
+            const firstDesc = descriptions[0];
+
+            const selectedStyle = document.getElementById('genStyle').value;
 
             generateBtn.disabled = true;
-            sketchBox.innerHTML = `<div style="text-align:center;padding:2rem">${loader()} Generating composite…<br><small style="color:#666">Takes ~30 seconds</small></div>`;
+            resultBox.innerHTML = `<div style="text-align:center;padding:2rem">${loader()} Generating ${selectedStyle === 'sketch' ? 'composite' : 'photo'}…<br><small style="color:#666">Translating & fusing witness inputs<br>Takes ~15 seconds</small></div>`;
             matchGrid.innerHTML = `<div style="grid-column:1/-1;color:#555;font-size:0.85rem">${loader()} Searching records…</div>`;
             detectedAttrs.innerHTML = '';
-            setStatus(`${loader()} Generating composite illustration…`);
+            setStatus(`${loader()} Generating image…`);
 
             // Run both in parallel
             const [genResult, matchResult] = await Promise.allSettled([
@@ -441,22 +497,29 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        description: desc, mode: 'diffusion',
-                        noise_scale: parseFloat(document.getElementById('noiseScale').value)
+                        description: firstDesc,
+                        descriptions: descriptions,
+                        mode: 'diffusion',
+                        noise_scale: parseFloat(document.getElementById('noiseScale').value),
+                        style: selectedStyle
                     })
                 }).then(r => r.json()),
 
                 fetch('/attribute_match', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ description: desc })
+                    body: JSON.stringify({
+                        description: firstDesc,
+                        descriptions: descriptions,
+                        location: document.getElementById('locationFilter').value
+                    })
                 }).then(r => r.json())
             ]);
 
             // Render composite sketch
             if (genResult.status === 'fulfilled') {
                 const d = genResult.value;
-                sketchBox.innerHTML = `<img src="${d.image}" alt="Generated composite">`;
+                resultBox.innerHTML = `<img src="${d.image}" alt="Generated result">`;
                 const attrs = d.attributes || {};
                 if (attrs.gender) {
                     detectedAttrs.innerHTML = '<div style="font-size:0.72rem;color:#888;margin-bottom:4px">Detected:</div>' +
@@ -465,7 +528,7 @@
                         ).join('');
                 }
             } else {
-                sketchBox.innerHTML = '<span class="placeholder-text" style="color:#fa8072">Generation failed</span>';
+                resultBox.innerHTML = '<span class="placeholder-text" style="color:#fa8072">Generation failed</span>';
             }
 
             // Render DB matches
@@ -491,7 +554,10 @@
 
             matchGrid.innerHTML = matchData.map((r, i) => {
                 const m = r.match;
-                const pct = r.attribute_similarity_pct || 0;
+
+                const displayScore = r.composite_score || (r.attribute_similarity_pct / 100);
+                const pct = Math.round(displayScore * 100);
+
                 const imgHtml = r.sketch_image
                     ? `<img class="card-img" src="${r.sketch_image}" alt="${m.name}">`
                     : `<div class="no-img">No sketch</div>`;
@@ -500,19 +566,53 @@
                 ${imgHtml}
                 <div class="match-info">
                     <div class="name">${m.name}</div>
-                    <div class="crime">⚖️ ${m.crime}</div>
+                    <div class="crime">📍 ${m.location || 'Unknown'} · ⚖️ ${m.crime}</div>
                     <div class="details">Age ${m.age} · ${m.sentence}</div>
                     <span class="risk-badge risk-${m.risk_level}">${m.risk_level} Risk</span>
                     <div class="score-bar">
                         <div class="score-fill" style="width:${Math.min(pct, 100)}%"></div>
                     </div>
-                    <div class="score-label">${pct}% attribute match</div>
+                    <div class="score-label">${pct}% Rank Match</div>
                     <div style="margin-top:6px;font-size:0.72rem;color:#6c63ff;cursor:pointer">
                         View Details →
                     </div>
                 </div>
             </div>`;
             }).join('');
+
+            // Add Generate Another Sketch button
+            const resetBtnContainer = document.createElement('div');
+            resetBtnContainer.style.gridColumn = '1/-1';
+            resetBtnContainer.style.textAlign = 'center';
+            resetBtnContainer.style.marginTop = '1.5rem';
+            resetBtnContainer.innerHTML = `<button class="primary-btn" onclick="resetGenerateFlow()">Generate Another Sketch</button>`;
+            matchGrid.appendChild(resetBtnContainer);
+        }
+
+        function resetGenerateFlow() {
+            // Clear inputs
+            const inputs = document.querySelectorAll('.descInput');
+            inputs.forEach((input, index) => {
+                if (index === 0) input.value = '';
+                else input.parentElement.parentElement.remove(); // Remove dynamically added ones
+            });
+            witnessCount = 1;
+
+            document.getElementById('locationFilter').value = '';
+
+            // Clear image area
+            resultBox.innerHTML = '<span class="placeholder-text">Image will appear here</span>';
+            detectedAttrs.innerHTML = '';
+
+            // Clear match area
+            matchData = [];
+            matchGrid.innerHTML = '<div style="color:#555;font-size:0.85rem;grid-column:1/-1">Matches will appear after you generate.</div>';
+
+            // Clear status
+            statusBar.innerHTML = '';
+
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         // ─── Modal ──────────────────────────────────────────────────────────────
@@ -529,13 +629,16 @@
             document.getElementById('mId').textContent = m.id || '—';
             document.getElementById('mAge').textContent = m.age;
             document.getElementById('mCrime').textContent = m.crime;
+            document.getElementById('mLocation').textContent = m.location || '—';
             document.getElementById('mSentence').textContent = m.sentence;
 
             const riskEl = document.getElementById('mRisk');
             riskEl.textContent = m.risk_level + ' Risk';
             riskEl.className = `risk-badge risk-${m.risk_level}`;
 
-            document.getElementById('mScore').textContent = r.attribute_similarity_pct + '% attribute match';
+            const displayScore = r.composite_score || (r.attribute_similarity_pct / 100);
+            const scorePct = Math.round(displayScore * 100);
+            document.getElementById('mScore').textContent = scorePct + '% Rank Match';
 
             const attrs = m.attributes || {};
             document.getElementById('mAttrs').innerHTML = Object.entries(attrs).map(([k, v]) =>
@@ -570,6 +673,7 @@
 
         window.openModal = openModal;
         window.closeModal = closeModal;
+        window.resetGenerateFlow = resetGenerateFlow;
     </script>
 </body>
 

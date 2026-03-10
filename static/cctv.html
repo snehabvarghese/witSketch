@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>CCTV Matching - WitSketch</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=3">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <style>
+        .split-upload {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .upload-panel {
+            background: #1e1e2e;
+            border: 2px dashed #334155;
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-panel:hover {
+            border-color: #6c63ff;
+            background: rgba(108, 99, 255, 0.05);
+        }
+
+        .upload-panel.has-file {
+            border-style: solid;
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        .preview-media {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            margin-top: 1rem;
+            object-fit: contain;
+        }
+
+        .cctv-results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .frame-card {
+            background: #1e1e2e;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            border: 1px solid #334155;
+            transition: transform 0.2s;
+        }
+
+        .frame-card:hover {
+            transform: translateY(-2px);
+            border-color: #6c63ff;
+        }
+
+        .frame-img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #111;
+        }
+
+        .frame-info {
+            padding: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="nav-placeholder"></div>
+
+    <div class="main-content">
+        <h1>CCTV Surveillance Matching</h1>
+        <p class="subtitle">Upload surveillance footage and a suspect profile to automatically scan for appearances.</p>
+
+        <div class="split-upload">
+            <!-- Video Upload -->
+            <div class="upload-panel" id="videoZone" onclick="document.getElementById('videoFile').click()">
+                <div id="videoPrompt">
+                    <ion-icon name="videocam-outline" style="font-size:3rem;color:#888;margin-bottom:1rem"></ion-icon>
+                    <h3>1. Upload CCTV Footage</h3>
+                    <p style="color:#666;font-size:0.9rem">MP4 or AVI format</p>
+                </div>
+                <video id="videoPreview" class="preview-media hidden" controls></video>
+                <input type="file" id="videoFile" accept="video/mp4,video/x-msvideo" class="hidden">
+            </div>
+
+            <!-- Suspect Image Upload -->
+            <div class="upload-panel" id="suspectZone" onclick="document.getElementById('suspectFile').click()">
+                <div id="suspectPrompt">
+                    <ion-icon name="person-outline" style="font-size:3rem;color:#888;margin-bottom:1rem"></ion-icon>
+                    <h3>2. Upload Target Suspect</h3>
+                    <p style="color:#666;font-size:0.9rem">A high-quality generated sketch or photo</p>
+                </div>
+                <img id="suspectPreview" class="preview-media hidden">
+                <input type="file" id="suspectFile" accept="image/*" class="hidden">
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <button id="scanBtn" class="primary-btn" style="font-size:1.1rem;padding:0.8rem 2.5rem" disabled>
+                <ion-icon name="scan-outline"></ion-icon> Scan Video for Matches
+            </button>
+            <div id="statusText" style="margin-top: 1rem; color: #a78bfa; font-weight: 600;"></div>
+        </div>
+
+        <!-- Results -->
+        <div id="resultsArea" class="hidden">
+            <h2 style="border-bottom: 1px solid #334155; padding-bottom: 0.5rem;">Detected Appearances</h2>
+            <div id="resultsGrid" class="cctv-results-grid">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/nav.js?v=4"></script>
+    <script>
+        const videoFile = document.getElementById('videoFile');
+        const suspectFile = document.getElementById('suspectFile');
+        const scanBtn = document.getElementById('scanBtn');
+        const statusText = document.getElementById('statusText');
+        const resultsArea = document.getElementById('resultsArea');
+        const resultsGrid = document.getElementById('resultsGrid');
+
+        // File Selection Logic
+        videoFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                document.getElementById('videoPrompt').classList.add('hidden');
+                const vid = document.getElementById('videoPreview');
+                vid.src = url;
+                vid.classList.remove('hidden');
+                document.getElementById('videoZone').classList.add('has-file');
+                checkReady();
+            }
+        });
+
+        suspectFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('suspectPrompt').classList.add('hidden');
+                    const img = document.getElementById('suspectPreview');
+                    img.src = e.target.result;
+                    img.classList.remove('hidden');
+                    document.getElementById('suspectZone').classList.add('has-file');
+                    checkReady();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function checkReady() {
+            if (videoFile.files.length > 0 && suspectFile.files.length > 0) {
+                scanBtn.disabled = false;
+            }
+        }
+
+        // Scan Action
+        scanBtn.addEventListener('click', async () => {
+            scanBtn.disabled = true;
+            resultsArea.classList.add('hidden');
+            statusText.innerHTML = '<span class="loader" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:8px"></span> Extracting frames and scanning faces... This may take a minute depending on video length.';
+
+            const formData = new FormData();
+            formData.append('video', videoFile.files[0]);
+            formData.append('suspect_image', suspectFile.files[0]);
+
+            try {
+                const resp = await fetch('/cctv_upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.detail || 'Failed to process video');
+                }
+
+                const data = await resp.json();
+                displayMatches(data.matches || []);
+                statusText.innerHTML = `<span style="color:#10b981">✓ Scan complete. Found ${data.matches.length} potential appearances.</span>`;
+            } catch (err) {
+                statusText.innerHTML = `<span style="color:#ef4444">Error: ${err.message}</span>`;
+            } finally {
+                scanBtn.disabled = false;
+            }
+        });
+
+        function displayMatches(matches) {
+            resultsGrid.innerHTML = '';
+
+            if (matches.length === 0) {
+                resultsGrid.innerHTML = '<div style="grid-column:1/-1;color:#888;text-align:center;padding:2rem">No confident matches found in this video.</div>';
+            } else {
+                matches.forEach(item => {
+                    const pct = item.similarity_pct;
+                    const card = document.createElement('div');
+                    card.className = 'frame-card';
+                    card.innerHTML = `
+                        <img src="${item.face_image}" class="frame-img" alt="Detected Face">
+                        <div class="frame-info">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.8rem">
+                                <span style="font-size:1.2rem;font-weight:700">⏱ ${item.timestamp}</span>
+                                <span class="similarity-badge" style="position:static">${pct}% Match</span>
+                            </div>
+                            <div class="progress-bar" style="margin-bottom:0.5rem">
+                                <div class="fill" style="width:${pct}%"></div>
+                            </div>
+                            <div style="font-size:0.8rem;color:#666">Confidence Score: ${item.score}</div>
+                        </div>
+                    `;
+                    resultsGrid.appendChild(card);
+                });
+            }
+            resultsArea.classList.remove('hidden');
+        }
+    </script>
+</body>
+
+</html>

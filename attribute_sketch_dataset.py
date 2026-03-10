@@ -45,7 +45,9 @@ def attrs_to_vector(attrs: dict) -> torch.Tensor:
         fs_oval = 1.0 if fs == 'oval' else 0.0
         fs_round = 1.0 if fs == 'round' else 0.0
         fs_square = 1.0 if fs == 'square' else 0.0
-        return torch.tensor([gender, hair_length, hair_black, hair_brown, hair_blonde, beard, glasses, fs_oval, fs_round, fs_square], dtype=torch.float)
+        age = attrs.get('age_group', 'young')
+        age_young = 1.0 if age == 'young' else 0.0
+        return torch.tensor([gender, hair_length, hair_black, hair_brown, hair_blonde, beard, glasses, fs_oval, fs_round, fs_square, age_young], dtype=torch.float)
 
 
 class AttributeSketchDataset(Dataset):

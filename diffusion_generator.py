@@ -11,15 +11,26 @@ from PIL import Image, ImageFilter, ImageOps, ImageEnhance
 # ── Prompt templates ─────────────────────────────────────────────────────────
 
 POSITIVE_PREFIX = (
-    "single person face portrait, forensic sketch, pencil drawing, police artist sketch, "
-    "front view, centered, black and white, detailed face, realistic proportions, "
-    "sharp lines, high quality sketch, "
+    "police forensic composite sketch of a single person's face, detailed graphite pencil drawing, "
+    "highly detailed face, realistic anatomic proportions, front view, sharp lines, masterfully drawn, "
+    "professional composite artist, black and white sketch, "
 )
 
 NEGATIVE_PROMPT = (
-    "color, colorful, photorealistic, photo, painting, cartoon, anime, "
-    "blurry, low quality, distorted, deformed, multiple faces, two faces, split screen, grid, collage, multiple views, text, "
-    "body, clothing below neck, bad anatomy, watermark"
+    "color, photorealistic, photo, painting, cartoon, anime, 3d render, "
+    "blurry, low quality, distorted, deformed faces, asymmetrical features, multiple faces, "
+    "text, watermark, signature, full body"
+)
+
+REAL_PREFIX = (
+    "photorealistic face portrait, high resolution photograph, 8k, detailed skin texture, "
+    "raw photo, DSLR 85mm lens, highly detailed, realistic proportions, authentic, "
+)
+
+REAL_NEGATIVE = (
+    "sketch, drawing, illustration, painting, cartoon, anime, 3d render, "
+    "blurry, low quality, deformed, asymmetrical, multiple faces, "
+    "text, watermark, full body"
 )
 
 
@@ -50,7 +61,7 @@ class DiffusionSketchGenerator:
 
     def load(self):
         """Load the pipeline (call once at startup)."""
-        from diffusers import StableDiffusionPipeline, StableDiffusionImg2ImgPipeline
+        from diffusers import StableDiffusionPipeline, StableDiffusionImg2ImgPipeline, DPMSolverMultistepScheduler
 
         print(f"[DiffusionGen] Loading {self.MODEL_ID} on {self.device} ...")
         print("[DiffusionGen] First run will download ~4 GB — please wait...")
@@ -64,6 +75,10 @@ class DiffusionSketchGenerator:
             safety_checker=None,       # skip NSFW filter for speed
             requires_safety_checker=False,
         )
+        
+        # Optimize with DPMSolverMultistepScheduler for faster inference
+        self.pipe.scheduler = DPMSolverMultistepScheduler.from_config(self.pipe.scheduler.config)
+        
         self.pipe = self.pipe.to(self.device)
         self.img2img_pipe = StableDiffusionImg2ImgPipeline(**self.pipe.components)
 
@@ -77,18 +92,20 @@ class DiffusionSketchGenerator:
     def generate(
         self,
         description: str,
-        num_inference_steps: int = 30,
+        num_inference_steps: int = 20,
         guidance_scale: float = 7.5,
         seed: int | None = None,
+        style: str = "sketch"
     ) -> Image.Image:
         """
-        Generate a sketch from a plain-English description.
+        Generate a portrait from a plain-English description.
 
         Args:
             description: e.g. "young woman with long brown hair and glasses"
             num_inference_steps: more steps = better quality but slower
             guidance_scale: how strictly the image follows the prompt (7-9 recommended)
             seed: optional fixed seed for reproducibility; None = random each call
+            style: "sketch" or "realistic"
 
         Returns:
             RGB PIL Image (512x512 by default)
@@ -96,7 +113,12 @@ class DiffusionSketchGenerator:
         if self.pipe is None:
             raise RuntimeError("Model not loaded. Call .load() first.")
 
-        prompt = POSITIVE_PREFIX + description
+        if style == "realistic":
+            prompt = REAL_PREFIX + description
+            negative_prompt = REAL_NEGATIVE
+        else:
+            prompt = POSITIVE_PREFIX + description
+            negative_prompt = NEGATIVE_PROMPT
 
         # Build generator for reproducibility (or random if seed is None)
         if seed is not None:
@@ -108,7 +130,7 @@ class DiffusionSketchGenerator:
 
         result = self.pipe(
             prompt=prompt,
-            negative_prompt=NEGATIVE_PROMPT,
+            negative_prompt=negative_prompt,
             num_inference_steps=num_inference_steps,
             guidance_scale=guidance_scale,
             generator=generator,
@@ -117,6 +139,8 @@ class DiffusionSketchGenerator:
         )
 
         pil_img = result.images[0]
+        if style == "realistic":
+            return pil_img
         return _to_sketch(pil_img)
 
     def generate_img2img(

@@ -17,12 +17,12 @@ from utils.face_encoder import FaceEncoder
 from attribute_sketch_dataset import attrs_to_vector
 
 # ── Config ─────────────────────────────────────────────────────────────────
-TRAIN_SKETCHES_DIR = "dataset/CUFS/train/sketches"
-TRAIN_PHOTOS_DIR   = "dataset/CUFS/train/photos"
-TRAIN_JSONL        = "dataset/CUFS/train.jsonl"
-TEST_SKETCHES_DIR  = "dataset/CUFS/test/sketches"
-TEST_PHOTOS_DIR    = "dataset/CUFS/test/photos"
-TEST_JSONL         = "dataset/CUFS/test.jsonl"
+TRAIN_SKETCHES_DIR = "dataset/CelebA/train/sketches"
+TRAIN_PHOTOS_DIR   = "dataset/CelebA/train/photos"
+TRAIN_JSONL        = "dataset/CelebA/train.jsonl"
+TEST_SKETCHES_DIR  = "dataset/CelebA/test/sketches"
+TEST_PHOTOS_DIR    = "dataset/CelebA/test/photos"
+TEST_JSONL         = "dataset/CelebA/test.jsonl"
 OUTPUT_FILE        = "criminal_records.json"
 DEVICE = "mps" if torch.backends.mps.is_available() else "cpu"
 
@@ -30,6 +30,10 @@ DEVICE = "mps" if torch.backends.mps.is_available() else "cpu"
 CRIMES = ["Grand Theft Auto","Burglary","Cyber Fraud","Arson","Assault",
           "Money Laundering","Identity Theft","Public Intoxication",
           "Vandalism","Petty Theft","Embezzlement","Racketeering"]
+LOCATIONS = [
+    "Downtown", "Northside", "West End", "South Park", 
+    "Eastside", "Midtown", "Harbor District", "Industrial Zone"
+]
 MALE_NAMES   = ["John","Michael","David","Robert","William","James","Joseph",
                 "Charles","Liam","Noah","Aiden","Ravi","Wei","Carlos"]
 FEMALE_NAMES = ["Jane","Emily","Sarah","Jessica","Ashley","Amanda","Jennifer",
@@ -62,14 +66,24 @@ def find_photo(filename: str, photos_dir: str) -> str:
 
 def generate_record(filename: str, attrs: dict, sketch_path: str, photo_path: str) -> dict:
     gender = attrs.get("gender", "male")
+    age_group = attrs.get("age_group", "young")
     first  = random.choice(FEMALE_NAMES if gender == "female" else MALE_NAMES)
+    
+    # Generate an age based on the age group
+    if age_group == "young":
+        age = random.randint(18, 35)
+    else:
+        age = random.randint(36, 65)
+        
     return {
         "id":          os.path.splitext(filename)[0],
         "name":        f"{first} {random.choice(LAST_NAMES)}",
-        "age":         random.randint(18, 65),
+        "age":         age,
         "crime":       random.choice(CRIMES),
+        "location":    random.choice(LOCATIONS),
         "sentence":    f"{random.randint(1, 20)} years",
         "risk_level":  random.choice(["Low", "Medium", "High", "Critical"]),
+        "past_arrests": random.randint(0, 5),
         "sketch_path": sketch_path,
         "photo_path":  photo_path,
         "attributes":  attrs,          # store raw attrs dict for display
@@ -93,14 +107,15 @@ def process_split(sketches_dir, photos_dir, jsonl_path,
         # Attributes — from JSONL or fallback from filename
         attrs = attr_map.get(filename, {})
         if not attrs:
-            fname_lower = filename.lower()
+            # Fallback if something went wrong
             attrs = {
-                "gender":     "female" if fname_lower.startswith("f") else "male",
-                "hair_length":"long"   if fname_lower.startswith("f") else "short",
+                "gender":     "male",
+                "hair_length":"short",
                 "hair_color": "black",
                 "beard":      "no",
                 "glasses":    "no",
                 "face_shape": "oval",
+                "age_group":  "young"
             }
 
         try:

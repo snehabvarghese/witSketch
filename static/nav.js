@@ -25,6 +25,9 @@ const navHTML = `
         <a href="/static/match.html" class="nav-item" id="nav-match">
             <ion-icon name="search-outline"></ion-icon> Match Database
         </a>
+        <a href="/static/cctv.html" class="nav-item" id="nav-cctv">
+            <ion-icon name="videocam-outline"></ion-icon> CCTV Video Face Match
+        </a>
         ${role === 'admin' ? `
         <a href="/static/admin.html" class="nav-item" id="nav-admin">
             <ion-icon name="shield-checkmark-outline"></ion-icon> Admin Panel
@@ -52,7 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (path.includes('dashboard')) document.getElementById('nav-dash').classList.add('active');
         if (path.includes('generate')) document.getElementById('nav-gen').classList.add('active');
         if (path.includes('builder')) document.getElementById('nav-builder').classList.add('active');
-        if (path.includes('match')) document.getElementById('nav-match').classList.add('active');
+        if (path.includes('match') && !path.includes('cctv')) document.getElementById('nav-match').classList.add('active');
+        if (path.includes('cctv')) document.getElementById('nav-cctv')?.classList.add('active');
         if (path.includes('admin')) document.getElementById('nav-admin')?.classList.add('active');
 
         // Logout
